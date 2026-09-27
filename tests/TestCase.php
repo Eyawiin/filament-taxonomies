@@ -63,7 +63,10 @@ class TestCase extends Orchestra
 
     public function getEnvironmentSetUp($app): void
     {
-        $app['config']->set('database.default', 'testing');
+        $app['config']->set([
+            'app.key' => 'base64:' . base64_encode(str_repeat('a', 32)),
+            'database.default' => 'testing',
+        ]);
     }
 
     protected function defineDatabaseMigrations(): void
