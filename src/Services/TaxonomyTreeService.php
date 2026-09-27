@@ -2,6 +2,7 @@
 
 namespace Eyawiin\FilamentTaxonomies\Services;
 
+use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyParentException;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 
 class TaxonomyTreeService
@@ -71,5 +72,24 @@ class TaxonomyTreeService
             $this->getDescendantIds($term),
             true,
         );
+    }
+
+    public function setParent(
+        TaxonomyTerm $term,
+        ?TaxonomyTerm $parent,
+    ): TaxonomyTerm {
+        if (! $this->canSetParent($term, $parent)) {
+            throw new InvalidTaxonomyParentException(
+                'The selected term cannot be used as the parent of this term.',
+            );
+        }
+
+        $term->parent_id = $parent === null
+            ? null
+            : (int) $parent->getKey();
+
+        $term->saveOrFail();
+
+        return $term;
     }
 }
