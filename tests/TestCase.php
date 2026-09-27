@@ -20,6 +20,7 @@ use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\Concerns\WithWorkbench;
 use Orchestra\Testbench\TestCase as Orchestra;
 use RyanChandler\BladeCaptureDirective\BladeCaptureDirectiveServiceProvider;
+use Workbench\App\Providers\Filament\AdminPanelProvider;
 
 class TestCase extends Orchestra
 {
@@ -39,6 +40,7 @@ class TestCase extends Orchestra
     {
         $providers = [
             ActionsServiceProvider::class,
+            AdminPanelProvider::class,
             BladeCaptureDirectiveServiceProvider::class,
             BladeHeroiconsServiceProvider::class,
             BladeIconsServiceProvider::class,
