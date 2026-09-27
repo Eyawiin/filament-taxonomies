@@ -2,7 +2,7 @@
 
 namespace Eyawiin\FilamentTaxonomies;
 
-use Eyawiin\FilamentTaxonomies\Pages\Taxonomies;
+use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Filament\Contracts\Plugin;
 use Filament\Panel;
 
@@ -15,8 +15,8 @@ class FilamentTaxonomiesPlugin implements Plugin
 
     public function register(Panel $panel): void
     {
-        $panel->pages([
-            Taxonomies::class,
+        $panel->resources([
+            TaxonomyResource::class,
         ]);
     }
 
