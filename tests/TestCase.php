@@ -66,6 +66,7 @@ class TestCase extends Orchestra
         $app['config']->set([
             'app.key' => 'base64:' . base64_encode(str_repeat('a', 32)),
             'database.default' => 'testing',
+            'database.connections.testing.foreign_key_constraints' => true,
         ]);
     }
 

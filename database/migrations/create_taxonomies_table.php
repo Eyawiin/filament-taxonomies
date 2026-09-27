@@ -8,12 +8,16 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('filament_taxonomies_table', function (Blueprint $table) {
+        Schema::create('taxonomies', function (Blueprint $table): void {
             $table->id();
-
-            // add fields
-
+            $table->string('name');
+            $table->string('slug')->unique();
             $table->timestamps();
         });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('taxonomies');
     }
 };
