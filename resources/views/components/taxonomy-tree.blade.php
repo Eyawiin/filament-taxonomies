@@ -25,11 +25,15 @@
                     </div>
                 </div>
 
-                <div class="shrink-0">
-                    {{ ($this->editTermAction)([
-                        'term' => $node['term']->getKey(),
-                    ]) }}
-                </div>
+                <div class="flex shrink-0 items-center gap-1">
+                  {{ ($this->editTermAction)([
+                      'term' => $node['term']->getKey(),
+                  ]) }}
+
+                  {{ ($this->deleteTermAction)([
+                      'term' => $node['term']->getKey(),
+                  ]) }}
+              </div>
             </div>
 
             @if ($node['children'] !== [])

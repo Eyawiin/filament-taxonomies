@@ -122,4 +122,23 @@ class ManageTaxonomyTerms extends Page
             )
             ->findOrFail((int) ($arguments['term'] ?? 0));
     }
+
+    public function deleteTermAction(): Action
+    {
+        return Action::make('deleteTerm')
+            ->label('Delete Term')
+            ->icon('heroicon-o-trash')
+            ->iconButton()
+            ->color('danger')
+            ->tooltip('Delete term')
+            ->requiresConfirmation()
+            ->modalHeading('Delete term')
+            ->modalDescription('Are you sure you want to delete this term? Its direct children will become root terms.')
+            ->modalSubmitActionLabel('Delete')
+            ->action(function (array $arguments): void {
+                $term = $this->resolveTerm($arguments);
+
+                $term->deleteOrFail();
+            });
+    }
 }
