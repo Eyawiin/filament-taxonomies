@@ -2,9 +2,11 @@
 
 namespace Eyawiin\FilamentTaxonomies\Services;
 
+use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyOrderException;
 use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyParentException;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
+use Illuminate\Support\Facades\DB;
 
 class TaxonomyTreeService
 {
@@ -85,9 +87,22 @@ class TaxonomyTreeService
             );
         }
 
-        $term->parent_id = $parent === null
+        $currentParentId = $term->parent_id === null
+            ? null
+            : (int) $term->parent_id;
+
+        $newParentId = $parent === null
             ? null
             : (int) $parent->getKey();
+
+        if ($currentParentId !== $newParentId) {
+            $term->parent_id = $newParentId;
+
+            $term->position = $this->getNextPosition(
+                (int) $term->taxonomy_id,
+                $newParentId,
+            );
+        }
 
         $term->saveOrFail();
 
@@ -97,7 +112,9 @@ class TaxonomyTreeService
     public function getTree(Taxonomy $taxonomy): array
     {
         $terms = $taxonomy->terms()
+            ->orderBy('position')
             ->orderBy('name')
+            ->orderBy('id')
             ->get();
 
         /** @var array<int, list<TaxonomyTerm>> $childrenByParent */
@@ -131,5 +148,93 @@ class TaxonomyTreeService
         }
 
         return $tree;
+    }
+
+    public function getNextPosition(
+        int $taxonomyId,
+        ?int $parentId,
+    ): int {
+        $maxPosition = TaxonomyTerm::query()
+            ->where('taxonomy_id', $taxonomyId)
+            ->where('parent_id', $parentId)
+            ->max('position');
+
+        if ($maxPosition === null) {
+            return 0;
+        }
+
+        return ((int) $maxPosition) + 1;
+    }
+
+    /**
+     * @param  list<int>  $termIds
+     */
+    public function reorderSiblings(
+        Taxonomy $taxonomy,
+        ?TaxonomyTerm $parent,
+        array $termIds,
+    ): void {
+        if (
+            $parent !== null
+            && (int) $parent->taxonomy_id !== (int) $taxonomy->getKey()
+        ) {
+            throw new InvalidTaxonomyOrderException(
+                'The parent must belong to the taxonomy being reordered.',
+            );
+        }
+
+        if (count($termIds) !== count(array_unique($termIds))) {
+            throw new InvalidTaxonomyOrderException(
+                'The sibling order contains duplicate term IDs.',
+            );
+        }
+
+        $parentId = $parent === null
+            ? null
+            : (int) $parent->getKey();
+
+        DB::transaction(function () use (
+            $taxonomy,
+            $parentId,
+            $termIds,
+        ): void {
+            $siblings = TaxonomyTerm::query()
+                ->where('taxonomy_id', $taxonomy->getKey())
+                ->where('parent_id', $parentId)
+                ->get();
+
+            $siblingIds = $siblings
+                ->modelKeys();
+
+            $expectedIds = array_map(
+                static fn (mixed $id): int => (int) $id,
+                $siblingIds,
+            );
+
+            $providedIds = array_map(
+                static fn (mixed $id): int => (int) $id,
+                $termIds,
+            );
+
+            $sortedExpectedIds = $expectedIds;
+            $sortedProvidedIds = $providedIds;
+
+            sort($sortedExpectedIds);
+            sort($sortedProvidedIds);
+
+            if ($sortedExpectedIds !== $sortedProvidedIds) {
+                throw new InvalidTaxonomyOrderException(
+                    'The provided terms must exactly match the sibling group.',
+                );
+            }
+
+            foreach ($providedIds as $position => $termId) {
+                TaxonomyTerm::query()
+                    ->whereKey($termId)
+                    ->update([
+                        'position' => $position,
+                    ]);
+            }
+        });
     }
 }

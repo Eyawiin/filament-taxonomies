@@ -1,5 +1,6 @@
 <?php
 
+use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyOrderException;
 use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyParentException;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
@@ -242,4 +243,296 @@ it('builds a taxonomy tree', function (): void {
     expect($lionKing)->not->toBeNull()
         ->and($lionKing['children'])->toHaveCount(1)
         ->and($lionKing['children'][0]['term']->name)->toBe('Simba');
+});
+
+it('orders sibling terms by position', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+        'position' => 1,
+    ]);
+
+    $pixar = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+        'position' => 0,
+    ]);
+
+    $lionKing = $taxonomy->terms()->create([
+        'name' => 'Lion King',
+        'slug' => 'lion-king',
+        'parent_id' => $disney->getKey(),
+        'position' => 1,
+    ]);
+
+    $liloAndStitch = $taxonomy->terms()->create([
+        'name' => 'Lilo & Stitch',
+        'slug' => 'lilo-stitch',
+        'parent_id' => $disney->getKey(),
+        'position' => 0,
+    ]);
+
+    $tree = app(TaxonomyTreeService::class)->getTree($taxonomy);
+
+    expect($tree)
+        ->toHaveCount(2)
+        ->and($tree[0]['term']->is($pixar))->toBeTrue()
+        ->and($tree[1]['term']->is($disney))->toBeTrue();
+
+    expect($tree[1]['children'])
+        ->toHaveCount(2)
+        ->and($tree[1]['children'][0]['term']->is($liloAndStitch))->toBeTrue()
+        ->and($tree[1]['children'][1]['term']->is($lionKing))->toBeTrue();
+});
+
+it('returns the next sibling position', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+        'position' => 0,
+    ]);
+
+    $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+        'position' => 1,
+    ]);
+
+    $taxonomy->terms()->create([
+        'name' => 'Lion King',
+        'slug' => 'lion-king',
+        'parent_id' => $disney->getKey(),
+        'position' => 0,
+    ]);
+
+    $tree = app(TaxonomyTreeService::class);
+
+    expect(
+        $tree->getNextPosition(
+            (int) $taxonomy->getKey(),
+            null,
+        ),
+    )->toBe(2);
+
+    expect(
+        $tree->getNextPosition(
+            (int) $taxonomy->getKey(),
+            (int) $disney->getKey(),
+        ),
+    )->toBe(1);
+});
+
+it('moves a term to the end of its new sibling group', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+        'position' => 0,
+    ]);
+
+    $pixar = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+        'position' => 1,
+    ]);
+
+    $taxonomy->terms()->create([
+        'name' => 'Toy Story',
+        'slug' => 'toy-story',
+        'parent_id' => $pixar->getKey(),
+        'position' => 0,
+    ]);
+
+    $lionKing = $taxonomy->terms()->create([
+        'name' => 'Lion King',
+        'slug' => 'lion-king',
+        'parent_id' => $disney->getKey(),
+        'position' => 0,
+    ]);
+
+    app(TaxonomyTreeService::class)
+        ->setParent($lionKing, $pixar);
+
+    $lionKing->refresh();
+
+    expect($lionKing->parent_id)
+        ->toBe($pixar->getKey())
+        ->and($lionKing->position)
+        ->toBe(1);
+});
+
+it('preserves position when the parent does not change', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+    ]);
+
+    $lionKing = $taxonomy->terms()->create([
+        'name' => 'Lion King',
+        'slug' => 'lion-king',
+        'parent_id' => $disney->getKey(),
+        'position' => 5,
+    ]);
+
+    app(TaxonomyTreeService::class)
+        ->setParent($lionKing, $disney);
+
+    expect($lionKing->fresh()->position)
+        ->toBe(5);
+});
+
+it('reorders sibling terms', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+        'position' => 0,
+    ]);
+
+    $pixar = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+        'position' => 1,
+    ]);
+
+    $countries = $taxonomy->terms()->create([
+        'name' => 'Countries',
+        'slug' => 'countries',
+        'position' => 2,
+    ]);
+
+    app(TaxonomyTreeService::class)->reorderSiblings(
+        $taxonomy,
+        null,
+        [
+            $countries->id,
+            $disney->id,
+            $pixar->id,
+        ],
+    );
+
+    expect($countries->fresh()->position)->toBe(0)
+        ->and($disney->fresh()->position)->toBe(1)
+        ->and($pixar->fresh()->position)->toBe(2);
+});
+
+it('reorders only the specified sibling group', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+        'position' => 0,
+    ]);
+
+    $lionKing = $taxonomy->terms()->create([
+        'name' => 'Lion King',
+        'slug' => 'lion-king',
+        'parent_id' => $disney->id,
+        'position' => 0,
+    ]);
+
+    $lilo = $taxonomy->terms()->create([
+        'name' => 'Lilo & Stitch',
+        'slug' => 'lilo-stitch',
+        'parent_id' => $disney->id,
+        'position' => 1,
+    ]);
+
+    app(TaxonomyTreeService::class)->reorderSiblings(
+        $taxonomy,
+        $disney,
+        [
+            $lilo->id,
+            $lionKing->id,
+        ],
+    );
+
+    expect($disney->fresh()->position)->toBe(0)
+        ->and($lilo->fresh()->position)->toBe(0)
+        ->and($lionKing->fresh()->position)->toBe(1);
+});
+
+it('rejects incomplete sibling orders', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+    ]);
+
+    $pixar = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+    ]);
+
+    expect(
+        fn () => app(TaxonomyTreeService::class)->reorderSiblings(
+            $taxonomy,
+            null,
+            [$disney->id],
+        ),
+    )->toThrow(InvalidTaxonomyOrderException::class);
+
+    expect($disney->fresh()->position)->toBe(0)
+        ->and($pixar->fresh()->position)->toBe(0);
+});
+
+it('rejects duplicate term IDs when reordering siblings', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+    ]);
+
+    $pixar = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+    ]);
+
+    expect(
+        fn () => app(TaxonomyTreeService::class)->reorderSiblings(
+            $taxonomy,
+            null,
+            [
+                $disney->id,
+                $disney->id,
+            ],
+        ),
+    )->toThrow(InvalidTaxonomyOrderException::class);
+
+    expect($pixar->fresh())->not->toBeNull();
 });

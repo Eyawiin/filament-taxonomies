@@ -151,8 +151,9 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
     protected function getMigrations(): array
     {
         return [
-            'create_taxonomies_table',
-            'create_taxonomy_terms_table',
+            '0001_create_taxonomies_table',
+            '0002_create_taxonomy_terms_table',
+            '0003_add_position_to_taxonomy_terms_table',
         ];
     }
 }

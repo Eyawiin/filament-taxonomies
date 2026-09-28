@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $parent_id
  * @property string $name
  * @property string $slug
+ * @property int $position
  */
 class TaxonomyTerm extends Model
 {
@@ -20,6 +21,7 @@ class TaxonomyTerm extends Model
         'parent_id',
         'name',
         'slug',
+        'position',
     ];
 
     public function taxonomy(): BelongsTo

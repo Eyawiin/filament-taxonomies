@@ -51,11 +51,23 @@ class ManageTaxonomyTerms extends Page
                     ),
                 )
                 ->action(function (array $data): void {
+                    $taxonomyId = (int) $this->getRecord()->getKey();
+
+                    $parentId = empty($data['parent_id'])
+                        ? null
+                        : (int) $data['parent_id'];
+
+                    $position = app(TaxonomyTreeService::class)->getNextPosition(
+                        $taxonomyId,
+                        $parentId,
+                    );
+
                     TaxonomyTerm::create([
-                        'taxonomy_id' => $this->getRecord()->getKey(),
-                        'parent_id' => $data['parent_id'] ?? null,
+                        'taxonomy_id' => $taxonomyId,
+                        'parent_id' => $parentId,
                         'name' => $data['name'],
                         'slug' => $data['slug'],
+                        'position' => $position,
                     ]);
                 }),
         ];
