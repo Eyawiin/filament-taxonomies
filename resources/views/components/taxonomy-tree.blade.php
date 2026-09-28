@@ -16,6 +16,9 @@
                 x-data="{
                     expanded: $persist(true).as(@js($storageKey))
                 }"
+                x-on:taxonomy-tree-set-expanded.window="
+                    expanded = $event.detail.expanded
+                "
             @endif
         >
             <div
@@ -41,8 +44,16 @@
                           />
                       </div>
                   @else
-                      <div class="w-8"></div>
-                  @endif
+                    <div class="invisible pointer-events-none" aria-hidden="true">
+                        <x-filament::icon-button
+                            icon="heroicon-o-chevron-right"
+                            label="Toggle children"
+                            size="sm"
+                            color="gray"
+                            tabindex="-1"
+                        />
+                    </div>
+                @endif
                 </div>
 
                 <div class="flex min-w-0 flex-1 items-center gap-3">
