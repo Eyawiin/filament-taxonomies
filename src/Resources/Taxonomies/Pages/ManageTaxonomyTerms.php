@@ -6,6 +6,7 @@ use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Schemas\TaxonomyTermForm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
+use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -58,5 +59,10 @@ class ManageTaxonomyTerms extends Page
                     ]);
                 }),
         ];
+    }
+
+    public function getTermTree(): array
+    {
+        return app(TaxonomyTreeService::class)->getTree($this->getRecord());
     }
 }

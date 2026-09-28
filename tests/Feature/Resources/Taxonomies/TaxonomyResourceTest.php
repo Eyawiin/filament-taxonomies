@@ -185,3 +185,48 @@ it('cannot create a taxonomy term with a parent from another taxonomy', function
         TaxonomyTerm::query()->where('slug', 'venice')->exists(),
     )->toBeFalse();
 });
+
+it('renders the taxonomy term tree', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = TaxonomyTerm::create([
+        'taxonomy_id' => $taxonomy->getKey(),
+        'name' => 'Disney',
+        'slug' => 'disney',
+    ]);
+
+    $lionKing = TaxonomyTerm::create([
+        'taxonomy_id' => $taxonomy->getKey(),
+        'parent_id' => $disney->getKey(),
+        'name' => 'Lion King',
+        'slug' => 'lion-king',
+    ]);
+
+    TaxonomyTerm::create([
+        'taxonomy_id' => $taxonomy->getKey(),
+        'parent_id' => $lionKing->getKey(),
+        'name' => 'Simba',
+        'slug' => 'simba',
+    ]);
+
+    TaxonomyTerm::create([
+        'taxonomy_id' => $taxonomy->getKey(),
+        'parent_id' => $disney->getKey(),
+        'name' => 'Lilo & Stitch',
+        'slug' => 'lilo-stitch',
+    ]);
+
+    Livewire::test(ManageTaxonomyTerms::class, [
+        'record' => $taxonomy->getKey(),
+    ])
+        ->assertSuccessful()
+        ->assertSeeInOrder([
+            'Disney',
+            'Lilo & Stitch',
+            'Lion King',
+            'Simba',
+        ]);
+});
