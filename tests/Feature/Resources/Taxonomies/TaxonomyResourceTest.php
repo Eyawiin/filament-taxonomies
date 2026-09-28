@@ -79,3 +79,16 @@ it('can delete a taxonomy', function () {
     expect(Taxonomy::find($taxonomy->getKey()))
         ->toBeNull();
 });
+
+it('has a manage terms action', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    Livewire::test(ListTaxonomies::class)
+        ->assertSuccessful()
+        ->assertActionExists(
+            TestAction::make('manageTerms')->table($taxonomy),
+        );
+});

@@ -6,6 +6,7 @@ use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\CreateTaxonomy;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\EditTaxonomy;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\ListTaxonomies;
+use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\ManageTaxonomyTerms;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Schemas\TaxonomyForm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Tables\TaxonomiesTable;
 use Filament\Resources\Resource;
@@ -38,6 +39,7 @@ class TaxonomyResource extends Resource
             'index' => ListTaxonomies::route('/'),
             'create' => CreateTaxonomy::route('/create'),
             'edit' => EditTaxonomy::route('/{record}/edit'),
+            'manageTerms' => ManageTaxonomyTerms::route('/{record}/manage-terms'),
         ];
     }
 }
