@@ -4,6 +4,7 @@ namespace Eyawiin\FilamentTaxonomies\Services;
 
 use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyParentException;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
+use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 
 class TaxonomyTreeService
 {
@@ -91,5 +92,44 @@ class TaxonomyTreeService
         $term->saveOrFail();
 
         return $term;
+    }
+
+    public function getTree(Taxonomy $taxonomy): array
+    {
+        $terms = $taxonomy->terms()
+            ->orderBy('name')
+            ->get();
+
+        /** @var array<int, list<TaxonomyTerm>> $childrenByParent */
+        $childrenByParent = [];
+
+        foreach ($terms as $term) {
+            $parentId = $term->parent_id ?? 0;
+
+            $childrenByParent[$parentId][] = $term;
+        }
+
+        return $this->buildTree($childrenByParent, 0);
+    }
+
+    /**
+     * @param array<int, list<TaxonomyTerm>> $childrenByParent
+     * @return list<array{term: TaxonomyTerm, children: list<mixed>}>
+     */
+    private function buildTree(array $childrenByParent, int $parentId): array
+    {
+        $tree = [];
+
+        foreach ($childrenByParent[$parentId] ?? [] as $term) {
+            $tree[] = [
+                'term' => $term,
+                'children' => $this->buildTree(
+                    $childrenByParent,
+                    (int) $term->getKey(),
+                ),
+            ];
+        }
+
+        return $tree;
     }
 }

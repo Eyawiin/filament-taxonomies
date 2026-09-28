@@ -223,3 +223,23 @@ it('preserves a term subtree when moving the term', function () {
             $simba->id,
         ]);
 });
+
+it('builds a taxonomy tree', function (): void {
+    ['taxonomy' => $taxonomy] = createThemeTree();
+
+    $tree = app(TaxonomyTreeService::class)->getTree($taxonomy);
+
+    expect($tree)->toHaveCount(1);
+
+    $disney = $tree[0];
+
+    expect($disney['term']->name)->toBe('Disney')
+        ->and($disney['children'])->toHaveCount(2);
+
+    $lionKing = collect($disney['children'])
+        ->first(fn (array $node): bool => $node['term']->name === 'Lion King');
+
+    expect($lionKing)->not->toBeNull()
+        ->and($lionKing['children'])->toHaveCount(1)
+        ->and($lionKing['children'][0]['term']->name)->toBe('Simba');
+});
