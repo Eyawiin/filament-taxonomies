@@ -1,5 +1,6 @@
 <?php
 
+use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyOrderException;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\CreateTaxonomy;
@@ -119,7 +120,11 @@ it('can create a taxonomy term', function (): void {
             'slug' => 'lilo-and-stitch',
             'parent_id' => $parent->getKey(),
         ])
-        ->assertHasNoFormErrors();
+        ->assertHasNoFormErrors()
+        ->assertDispatched(
+            'taxonomy-tree-expand-term',
+            termId: $parent->getKey(),
+        );
 
     $term = TaxonomyTerm::query()
         ->where('slug', 'lilo-and-stitch')
@@ -147,7 +152,8 @@ it('can create a root taxonomy term', function (): void {
             'slug' => 'disney',
             'parent_id' => null,
         ])
-        ->assertHasNoFormErrors();
+        ->assertHasNoFormErrors()
+        ->assertNotDispatched('taxonomy-tree-expand-term');
 
     expect(TaxonomyTerm::query()->where('slug', 'disney')->first())
         ->not->toBeNull()
@@ -593,4 +599,80 @@ it('cannot delete a term from another taxonomy', function (): void {
         ->not->toBeNull()
         ->and($italy->fresh()->name)
         ->toBe('Italy');
+});
+
+it('can reorder taxonomy terms within the same parent', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+    ]);
+
+    $lionKing = $taxonomy->terms()->create([
+        'name' => 'Lion King',
+        'slug' => 'lion-king',
+        'parent_id' => $disney->id,
+        'position' => 0,
+    ]);
+
+    $liloAndStitch = $taxonomy->terms()->create([
+        'name' => 'Lilo & Stitch',
+        'slug' => 'lilo-stitch',
+        'parent_id' => $disney->id,
+        'position' => 1,
+    ]);
+
+    Livewire::test(ManageTaxonomyTerms::class, [
+        'record' => $taxonomy->getKey(),
+    ])
+        ->call(
+            'moveTerm',
+            $liloAndStitch->id,
+            0,
+            $disney->id,
+        );
+
+    expect($liloAndStitch->fresh()->position)->toBe(0)
+        ->and($lionKing->fresh()->position)->toBe(1);
+});
+
+it('cannot move taxonomy terms between parents through sibling reordering', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+    ]);
+
+    $pixar = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+    ]);
+
+    $lionKing = $taxonomy->terms()->create([
+        'name' => 'Lion King',
+        'slug' => 'lion-king',
+        'parent_id' => $disney->id,
+    ]);
+
+    expect(
+        fn () => Livewire::test(ManageTaxonomyTerms::class, [
+            'record' => $taxonomy->getKey(),
+        ])->call(
+            'moveTerm',
+            $lionKing->id,
+            0,
+            $pixar->id,
+        ),
+    )->toThrow(InvalidTaxonomyOrderException::class);
+
+    expect($lionKing->fresh()->parent_id)
+        ->toBe($disney->id);
 });

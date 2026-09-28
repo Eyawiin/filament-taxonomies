@@ -1,4 +1,13 @@
-<ul class="m-0 list-none space-y-2 p-0">
+@props([
+    'nodes',
+    'parentId' => null,
+])
+
+<ul
+    class="m-0 list-none space-y-2 p-0"
+    x-sort="$wire.moveTerm(Number($item), $position, @js($parentId))"
+    x-sort:config="{ animation: 100 }"
+>
     @foreach ($nodes as $node)
         @php
             $hasChildren = $node['children'] !== [];
@@ -12,14 +21,14 @@
 
         <li
             wire:key="taxonomy-term-{{ $node['term']->getKey() }}"
-            @if ($hasChildren)
-                x-data="{
-                    expanded: $persist(true).as(@js($storageKey))
-                }"
-                x-on:taxonomy-tree-set-expanded.window="
-                    expanded = $event.detail.expanded
-                "
-            @endif
+            x-data="{ expanded: $persist(true).as(@js($storageKey)) }"
+            x-on:taxonomy-tree-set-expanded.window="expanded = $event.detail.expanded"
+            x-on:taxonomy-tree-expand-term.window="
+                if ($event.detail.termId === @js((int) $node['term']->getKey())) {
+                    expanded = true
+                }
+            "
+            x-sort:item="{{ $node['term']->getKey() }}"
         >
             <div
                 class="
@@ -73,6 +82,17 @@
                     </div>
                 </div>
 
+                <div
+                    x-sort:handle
+                    class="flex h-8 w-8 shrink-0 cursor-grab touch-none select-none items-center justify-center text-gray-400 active:cursor-grabbing dark:text-gray-500"
+                    title="Drag to reorder"
+                >
+                    <x-filament::icon
+                        icon="heroicon-o-bars-3"
+                        class="h-5 w-5"
+                    />
+                </div>
+
                 <div class="flex shrink-0 items-center gap-1">
                     {{ ($this->editTermAction)([
                         'term' => $node['term']->getKey(),
@@ -92,6 +112,7 @@
                     <div class="pt-2 ps-8">
                         <x-filament-taxonomies::taxonomy-tree
                             :nodes="$node['children']"
+                            :parent-id="(int) $node['term']->getKey()"
                         />
                     </div>
                 </div>

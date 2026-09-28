@@ -2,6 +2,7 @@
 
 namespace Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages;
 
+use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyOrderException;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Schemas\TaxonomyTermForm;
@@ -69,6 +70,13 @@ class ManageTaxonomyTerms extends Page
                         'slug' => $data['slug'],
                         'position' => $position,
                     ]);
+
+                    if ($parentId !== null) {
+                        $this->dispatch(
+                            'taxonomy-tree-expand-term',
+                            termId: $parentId,
+                        );
+                    }
                 }),
         ];
     }
@@ -152,5 +160,42 @@ class ManageTaxonomyTerms extends Page
 
                 $term->deleteOrFail();
             });
+    }
+
+    public function moveTerm(
+        int $termId,
+        int $position,
+        ?int $parentId = null,
+    ): void {
+        $term = $this->resolveTerm([
+            'term' => $termId,
+        ]);
+
+        $parent = $parentId === null
+            ? null
+            : $this->resolveTerm([
+                'term' => $parentId,
+            ]);
+
+        $currentParentId = $term->parent_id === null
+            ? null
+            : (int) $term->parent_id;
+
+        $requestedParentId = $parent === null
+            ? null
+            : (int) $parent->getKey();
+
+        // Phase 8.2 only allows reordering inside the existing sibling group.
+        if ($currentParentId !== $requestedParentId) {
+            throw new InvalidTaxonomyOrderException(
+                'The term cannot be moved to another parent while reordering siblings.',
+            );
+        }
+
+        app(TaxonomyTreeService::class)->moveTerm(
+            $term,
+            $parent,
+            $position,
+        );
     }
 }

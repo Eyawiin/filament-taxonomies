@@ -4,7 +4,6 @@ namespace Eyawiin\FilamentTaxonomies;
 
 use Eyawiin\FilamentTaxonomies\Commands\FilamentTaxonomiesCommand;
 use Eyawiin\FilamentTaxonomies\Testing\TestsFilamentTaxonomies;
-use Eyawiin\FilamentTaxonomies\View\Components\TaxonomyTree;
 use Filament\Support\Assets\AlpineComponent;
 use Filament\Support\Assets\Asset;
 use Filament\Support\Assets\Css;
@@ -54,9 +53,7 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
             $package->hasTranslations();
         }
 
-        if (file_exists($package->basePath('/../resources/views'))) {
-            $package->hasViews(static::$viewNamespace);
-        }
+        $package->hasViews(static::$viewNamespace);
     }
 
     public function packageRegistered(): void {}
@@ -85,10 +82,6 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
                 ], 'filament-taxonomies-stubs');
             }
         }
-
-        $this->loadViewComponentsAs('filament-taxonomies', [
-            'taxonomy-tree' => TaxonomyTree::class,
-        ]);
 
         // Testing
         Testable::mixin(new TestsFilamentTaxonomies);

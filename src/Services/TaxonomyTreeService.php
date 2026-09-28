@@ -237,4 +237,129 @@ class TaxonomyTreeService
             }
         });
     }
+
+    public function moveTerm(
+        TaxonomyTerm $term,
+        ?TaxonomyTerm $parent,
+        int $position,
+    ): TaxonomyTerm {
+        if (! $this->canSetParent($term, $parent)) {
+            throw new InvalidTaxonomyParentException(
+                'The selected term cannot be used as the parent of this term.',
+            );
+        }
+
+        if ($position < 0) {
+            throw new InvalidTaxonomyOrderException(
+                'The term position cannot be negative.',
+            );
+        }
+
+        return DB::transaction(function () use (
+            $term,
+            $parent,
+            $position,
+        ): TaxonomyTerm {
+            $taxonomyId = (int) $term->taxonomy_id;
+
+            $oldParentId = $term->parent_id === null
+                ? null
+                : (int) $term->parent_id;
+
+            $newParentId = $parent === null
+                ? null
+                : (int) $parent->getKey();
+
+            $termId = (int) $term->getKey();
+
+            $destinationSiblingIds = $this->getOrderedSiblingIds(
+                $taxonomyId,
+                $newParentId,
+                $oldParentId === $newParentId ? $termId : null,
+            );
+
+            if ($position > count($destinationSiblingIds)) {
+                throw new InvalidTaxonomyOrderException(
+                    'The term position is outside the destination sibling group.',
+                );
+            }
+
+            if ($oldParentId !== $newParentId) {
+                $oldSiblingIds = $this->getOrderedSiblingIds(
+                    $taxonomyId,
+                    $oldParentId,
+                    $termId,
+                );
+
+                $term->parent_id = $newParentId;
+                $term->saveOrFail();
+
+                $this->persistSiblingPositions(
+                    $taxonomyId,
+                    $oldParentId,
+                    $oldSiblingIds,
+                );
+            }
+
+            array_splice(
+                $destinationSiblingIds,
+                $position,
+                0,
+                [$termId],
+            );
+
+            $this->persistSiblingPositions(
+                $taxonomyId,
+                $newParentId,
+                $destinationSiblingIds,
+            );
+
+            return $term->refresh();
+        });
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function getOrderedSiblingIds(
+        int $taxonomyId,
+        ?int $parentId,
+        ?int $excludeTermId = null,
+    ): array {
+        $query = TaxonomyTerm::query()
+            ->where('taxonomy_id', $taxonomyId)
+            ->where('parent_id', $parentId)
+            ->orderBy('position')
+            ->orderBy('name')
+            ->orderBy('id');
+
+        if ($excludeTermId !== null) {
+            $query->where('id', '!=', $excludeTermId);
+        }
+
+        return $query
+            ->pluck('id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  list<int>  $termIds
+     */
+    private function persistSiblingPositions(
+        int $taxonomyId,
+        ?int $parentId,
+        array $termIds,
+    ): void {
+        foreach ($termIds as $position => $termId) {
+            TaxonomyTerm::query()
+                ->where('taxonomy_id', $taxonomyId)
+                ->where('parent_id', $parentId)
+                ->whereKey($termId)
+                ->update([
+                    'position' => $position,
+                ]);
+        }
+    }
 }
