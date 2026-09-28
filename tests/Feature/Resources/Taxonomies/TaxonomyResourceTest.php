@@ -574,15 +574,20 @@ it('cannot delete a term from another taxonomy', function (): void {
         'slug' => 'italy',
     ]);
 
-    Livewire::test(ManageTaxonomyTerms::class, [
-        'record' => $taxonomy->getKey(),
-    ])
-        ->callAction(
-            TestAction::make('deleteTerm')
-                ->arguments([
-                    'term' => $italy->getKey(),
-                ]),
-        );
+    try {
+        Livewire::test(ManageTaxonomyTerms::class, [
+            'record' => $taxonomy->getKey(),
+        ])
+            ->callAction(
+                TestAction::make('deleteTerm')
+                    ->arguments([
+                        'term' => $italy->getKey(),
+                    ]),
+            );
+    } catch (ModelNotFoundException $exception) {
+        expect($exception->getModel())
+            ->toBe(TaxonomyTerm::class);
+    }
 
     expect(TaxonomyTerm::find($italy->getKey()))
         ->not->toBeNull()
