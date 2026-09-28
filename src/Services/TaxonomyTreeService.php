@@ -3,8 +3,8 @@
 namespace Eyawiin\FilamentTaxonomies\Services;
 
 use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyParentException;
-use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
+use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 
 class TaxonomyTreeService
 {
@@ -113,7 +113,7 @@ class TaxonomyTreeService
     }
 
     /**
-     * @param array<int, list<TaxonomyTerm>> $childrenByParent
+     * @param  array<int, list<TaxonomyTerm>>  $childrenByParent
      * @return list<array{term: TaxonomyTerm, children: list<mixed>}>
      */
     private function buildTree(array $childrenByParent, int $parentId): array
