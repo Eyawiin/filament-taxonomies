@@ -8,11 +8,12 @@
             This taxonomy does not have any terms yet.
         </p>
     @else
-        <ul class="space-y-3">
-            @include(
-                'filament-taxonomies::resources.taxonomies.partials.term-tree',
-                ['nodes' => $tree]
-            )
-        </ul>
+        <x-filament::section>
+            <x-slot name="heading">
+                Terms
+            </x-slot>
+
+            <x-filament-taxonomies::taxonomy-tree :nodes="$tree" />
+        </x-filament::section>
     @endif
 </x-filament-panels::page>
