@@ -65,4 +65,61 @@ class ManageTaxonomyTerms extends Page
     {
         return app(TaxonomyTreeService::class)->getTree($this->getRecord());
     }
+
+    public function editTermAction(): Action
+    {
+        return Action::make('editTerm')
+            ->label('Edit Term')
+            ->icon('heroicon-o-pencil-square')
+            ->iconButton()
+            ->tooltip('Edit term')
+            ->fillForm(function (array $arguments): array {
+                $term = $this->resolveTerm($arguments);
+
+                return [
+                    'name' => $term->name,
+                    'slug' => $term->slug,
+                    'parent_id' => $term->parent_id,
+                ];
+            })
+            ->schema(function (Schema $schema, array $arguments): Schema {
+                $term = $this->resolveTerm($arguments);
+
+                return TaxonomyTermForm::configure(
+                    $schema,
+                    $this->getRecord(),
+                    $term,
+                );
+            })
+            ->action(function (array $data, array $arguments): void {
+                $term = $this->resolveTerm($arguments);
+
+                $parent = null;
+
+                if (! empty($data['parent_id'])) {
+                    $parent = TaxonomyTerm::query()
+                        ->where(
+                            'taxonomy_id',
+                            $this->getRecord()->getKey(),
+                        )
+                        ->findOrFail((int) $data['parent_id']);
+                }
+
+                $term->name = (string) $data['name'];
+                $term->slug = (string) $data['slug'];
+
+                app(TaxonomyTreeService::class)
+                    ->setParent($term, $parent);
+            });
+    }
+
+    private function resolveTerm(array $arguments): TaxonomyTerm
+    {
+        return TaxonomyTerm::query()
+            ->where(
+                'taxonomy_id',
+                $this->getRecord()->getKey(),
+            )
+            ->findOrFail((int) ($arguments['term'] ?? 0));
+    }
 }
