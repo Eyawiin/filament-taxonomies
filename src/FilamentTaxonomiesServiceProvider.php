@@ -6,8 +6,6 @@ use Eyawiin\FilamentTaxonomies\Commands\FilamentTaxonomiesCommand;
 use Eyawiin\FilamentTaxonomies\Testing\TestsFilamentTaxonomies;
 use Filament\Support\Assets\AlpineComponent;
 use Filament\Support\Assets\Asset;
-use Filament\Support\Assets\Css;
-use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Facades\FilamentIcon;
 use Illuminate\Filesystem\Filesystem;
@@ -29,9 +27,11 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
          *
          * More info: https://github.com/spatie/laravel-package-tools
          */
-        $package->name(static::$name)
+        $package
+            ->name(static::$name)
+            ->hasViews(static::$viewNamespace)
             ->hasCommands($this->getCommands())
-            ->hasInstallCommand(function (InstallCommand $command) {
+            ->hasInstallCommand(function (InstallCommand $command): void {
                 $command
                     ->publishConfigFile()
                     ->publishMigrations()
@@ -52,38 +52,37 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
         if (file_exists($package->basePath('/../resources/lang'))) {
             $package->hasTranslations();
         }
-
-        $package->hasViews(static::$viewNamespace);
     }
 
-    public function packageRegistered(): void {}
+    public function packageRegistered(): void
+    {
+        //
+    }
 
     public function packageBooted(): void
     {
-        // Asset Registration
         FilamentAsset::register(
             $this->getAssets(),
-            $this->getAssetPackageName()
+            $this->getAssetPackageName(),
         );
 
         FilamentAsset::registerScriptData(
             $this->getScriptData(),
-            $this->getAssetPackageName()
+            $this->getAssetPackageName(),
         );
 
-        // Icon Registration
         FilamentIcon::register($this->getIcons());
 
-        // Handle Stubs
         if (app()->runningInConsole()) {
             foreach (app(Filesystem::class)->files(__DIR__ . '/../stubs/') as $file) {
                 $this->publishes([
-                    $file->getRealPath() => base_path("stubs/filament-taxonomies/{$file->getFilename()}"),
+                    $file->getRealPath() => base_path(
+                        "stubs/filament-taxonomies/{$file->getFilename()}",
+                    ),
                 ], 'filament-taxonomies-stubs');
             }
         }
 
-        // Testing
         Testable::mixin(new TestsFilamentTaxonomies);
     }
 
@@ -98,9 +97,10 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
     protected function getAssets(): array
     {
         return [
-            // AlpineComponent::make('filament-taxonomies', __DIR__ . '/../resources/dist/components/filament-taxonomies.js'),
-            // Css::make('filament-taxonomies-styles', __DIR__ . '/../resources/dist/filament-taxonomies.css'),
-            // Js::make('filament-taxonomies-scripts', __DIR__ . '/../resources/dist/filament-taxonomies.js'),
+            AlpineComponent::make(
+                'taxonomy-tree',
+                __DIR__ . '/../resources/dist/components/taxonomy-tree.js',
+            ),
         ];
     }
 

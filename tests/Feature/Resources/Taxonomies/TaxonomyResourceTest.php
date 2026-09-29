@@ -1,6 +1,5 @@
 <?php
 
-use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyOrderException;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\CreateTaxonomy;
@@ -640,7 +639,7 @@ it('can reorder taxonomy terms within the same parent', function (): void {
         ->and($lionKing->fresh()->position)->toBe(1);
 });
 
-it('cannot move taxonomy terms between parents through sibling reordering', function (): void {
+it('can move a taxonomy term between parents through drag ordering', function (): void {
     $taxonomy = Taxonomy::create([
         'name' => 'Theme',
         'slug' => 'theme',
@@ -660,19 +659,129 @@ it('cannot move taxonomy terms between parents through sibling reordering', func
         'name' => 'Lion King',
         'slug' => 'lion-king',
         'parent_id' => $disney->id,
+        'position' => 0,
     ]);
 
-    expect(
-        fn () => Livewire::test(ManageTaxonomyTerms::class, [
-            'record' => $taxonomy->getKey(),
-        ])->call(
+    $toyStory = $taxonomy->terms()->create([
+        'name' => 'Toy Story',
+        'slug' => 'toy-story',
+        'parent_id' => $pixar->id,
+        'position' => 0,
+    ]);
+
+    $cars = $taxonomy->terms()->create([
+        'name' => 'Cars',
+        'slug' => 'cars',
+        'parent_id' => $pixar->id,
+        'position' => 1,
+    ]);
+
+    Livewire::test(ManageTaxonomyTerms::class, [
+        'record' => $taxonomy->getKey(),
+    ])
+        ->call(
+            'moveTerm',
+            $lionKing->id,
+            1,
+            $pixar->id,
+        )
+        ->assertDispatched(
+            'taxonomy-tree-expand-term',
+            termId: $pixar->id,
+        );
+
+    expect($lionKing->fresh())
+        ->parent_id->toBe($pixar->id)
+        ->position->toBe(1);
+
+    expect($toyStory->fresh()->position)
+        ->toBe(0)
+        ->and($cars->fresh()->position)
+        ->toBe(2);
+});
+
+it('can move a taxonomy term to the root through drag ordering', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+        'position' => 0,
+    ]);
+
+    $pixar = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+        'position' => 1,
+    ]);
+
+    $lionKing = $taxonomy->terms()->create([
+        'name' => 'Lion King',
+        'slug' => 'lion-king',
+        'parent_id' => $disney->id,
+        'position' => 0,
+    ]);
+
+    Livewire::test(ManageTaxonomyTerms::class, [
+        'record' => $taxonomy->getKey(),
+    ])
+        ->call(
+            'moveTerm',
+            $lionKing->id,
+            1,
+            null,
+        )
+        ->assertNotDispatched('taxonomy-tree-expand-term');
+
+    expect($lionKing->fresh())
+        ->parent_id->toBeNull()
+        ->position->toBe(1);
+
+    expect($disney->fresh()->position)->toBe(0)
+        ->and($pixar->fresh()->position)->toBe(2);
+});
+
+it('can move a taxonomy term into an empty parent through drag ordering', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+    ]);
+
+    $pixar = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+    ]);
+
+    $lionKing = $taxonomy->terms()->create([
+        'name' => 'Lion King',
+        'slug' => 'lion-king',
+        'parent_id' => $disney->id,
+        'position' => 0,
+    ]);
+
+    Livewire::test(ManageTaxonomyTerms::class, [
+        'record' => $taxonomy->getKey(),
+    ])
+        ->call(
             'moveTerm',
             $lionKing->id,
             0,
             $pixar->id,
-        ),
-    )->toThrow(InvalidTaxonomyOrderException::class);
+        )
+        ->assertDispatched(
+            'taxonomy-tree-expand-term',
+            termId: $pixar->id,
+        );
 
-    expect($lionKing->fresh()->parent_id)
-        ->toBe($disney->id);
+    expect($lionKing->fresh())
+        ->parent_id->toBe($pixar->id)
+        ->position->toBe(0);
 });

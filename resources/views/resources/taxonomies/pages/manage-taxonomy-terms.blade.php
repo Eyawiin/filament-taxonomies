@@ -13,7 +13,17 @@
                 Terms
             </x-slot>
 
-            <div x-data>
+            <div
+                x-load
+                x-load-src="{{ \Filament\Support\Facades\FilamentAsset::getAlpineComponentSrc(
+                    'taxonomy-tree',
+                    package: 'eyawiin/filament-taxonomies',
+                ) }}"
+                x-data="taxonomyTreeDrag({
+                    moveTerm: (termId, position, parentId) =>
+                        $wire.moveTerm(termId, position, parentId),
+                })"
+            >
                 <div class="mb-4 flex justify-end gap-2">
                     <x-filament::button
                         type="button"

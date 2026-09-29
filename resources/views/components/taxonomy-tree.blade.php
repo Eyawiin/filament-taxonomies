@@ -4,31 +4,33 @@
 ])
 
 <ul
+    data-taxonomy-sortable
+    data-parent-id="{{ $parentId }}"
     class="m-0 list-none space-y-2 p-0"
-    x-sort="$wire.moveTerm(Number($item), $position, @js($parentId))"
-    x-sort:config="{ animation: 100 }"
 >
     @foreach ($nodes as $node)
         @php
             $hasChildren = $node['children'] !== [];
+            $termId = (int) $node['term']->getKey();
 
             $storageKey = sprintf(
                 'eyawiin-filament-taxonomies:tree:%s:term:%s:expanded',
                 $node['term']->taxonomy_id,
-                $node['term']->getKey(),
+                $termId,
             );
         @endphp
 
         <li
             wire:key="taxonomy-term-{{ $node['term']->getKey() }}"
+            data-taxonomy-term
+            data-term-id="{{ $node['term']->getKey() }}"
             x-data="{ expanded: $persist(true).as(@js($storageKey)) }"
             x-on:taxonomy-tree-set-expanded.window="expanded = $event.detail.expanded"
             x-on:taxonomy-tree-expand-term.window="
-                if ($event.detail.termId === @js((int) $node['term']->getKey())) {
+                if ($event.detail.termId === @js($termId)) {
                     expanded = true
                 }
             "
-            x-sort:item="{{ $node['term']->getKey() }}"
         >
             <div
                 class="
@@ -37,6 +39,17 @@
                     dark:border-white/10 dark:bg-gray-900
                 "
             >
+                <div
+                    data-taxonomy-drag-handle
+                    class="flex h-8 w-8 shrink-0 cursor-grab touch-none select-none items-center justify-center text-gray-400 active:cursor-grabbing dark:text-gray-500"
+                    title="Drag to reorder"
+                >
+                    <x-filament::icon
+                        icon="heroicon-o-bars-3"
+                        class="h-5 w-5"
+                    />
+                </div>
+                
                 <div class="flex shrink-0 items-center">
                     @if ($hasChildren)
                       <div
@@ -82,17 +95,6 @@
                     </div>
                 </div>
 
-                <div
-                    x-sort:handle
-                    class="flex h-8 w-8 shrink-0 cursor-grab touch-none select-none items-center justify-center text-gray-400 active:cursor-grabbing dark:text-gray-500"
-                    title="Drag to reorder"
-                >
-                    <x-filament::icon
-                        icon="heroicon-o-bars-3"
-                        class="h-5 w-5"
-                    />
-                </div>
-
                 <div class="flex shrink-0 items-center gap-1">
                     {{ ($this->editTermAction)([
                         'term' => $node['term']->getKey(),
@@ -104,19 +106,22 @@
                 </div>
             </div>
 
-            @if ($hasChildren)
-                <div
+            <div
+                data-taxonomy-children-wrapper
+                @if ($hasChildren)
                     x-show="expanded"
                     x-collapse.duration.100ms
-                >
-                    <div class="pt-2 ps-8">
-                        <x-filament-taxonomies::taxonomy-tree
-                            :nodes="$node['children']"
-                            :parent-id="(int) $node['term']->getKey()"
-                        />
-                    </div>
-                </div>
-            @endif
+                @endif
+                @class([
+                    'ps-8',
+                    'pt-2' => $hasChildren,
+                ])
+            >
+                <x-filament-taxonomies::taxonomy-tree
+                    :nodes="$node['children']"
+                    :parent-id="$termId"
+                />
+            </div>
         </li>
     @endforeach
 </ul>

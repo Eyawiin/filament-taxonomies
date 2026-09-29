@@ -2,6 +2,7 @@
 
 namespace Workbench\App\Providers;
 
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\ServiceProvider;
 
 class WorkbenchServiceProvider extends ServiceProvider
@@ -11,7 +12,17 @@ class WorkbenchServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        if ($this->app->runningUnitTests()) {
+            return;
+        }
+
+        $config = $this->app->make(Repository::class);
+
+        $config->set([
+            'database.default' => 'sqlite',
+            'database.connections.sqlite.database' => database_path('database.sqlite'),
+            'cache.default' => 'file',
+        ]);
     }
 
     /**
