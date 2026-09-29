@@ -2,6 +2,8 @@
 
 namespace Eyawiin\FilamentTaxonomies\Services;
 
+use Eyawiin\FilamentTaxonomies\Enums\TaxonomyTermDropPosition;
+use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyDropException;
 use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyOrderException;
 use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyParentException;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
@@ -361,5 +363,106 @@ class TaxonomyTreeService
                     'position' => $position,
                 ]);
         }
+    }
+
+    public function moveRelativeTo(
+        TaxonomyTerm $term,
+        TaxonomyTerm $target,
+        TaxonomyTermDropPosition $position,
+    ): TaxonomyTerm {
+        if ($term->is($target)) {
+            throw new InvalidTaxonomyDropException(
+                'A taxonomy term cannot be dropped relative to itself.',
+            );
+        }
+
+        if ((int) $term->taxonomy_id !== (int) $target->taxonomy_id) {
+            throw new InvalidTaxonomyDropException(
+                'A taxonomy term cannot be moved relative to a term from another taxonomy.',
+            );
+        }
+
+        return match ($position) {
+            TaxonomyTermDropPosition::Inside => $this->moveInside(
+                $term,
+                $target,
+            ),
+
+            TaxonomyTermDropPosition::Before => $this->moveBeforeOrAfter(
+                $term,
+                $target,
+                after: false,
+            ),
+
+            TaxonomyTermDropPosition::After => $this->moveBeforeOrAfter(
+                $term,
+                $target,
+                after: true,
+            ),
+        };
+    }
+
+    private function moveInside(
+        TaxonomyTerm $term,
+        TaxonomyTerm $target,
+    ): TaxonomyTerm {
+        $position = TaxonomyTerm::query()
+            ->where('taxonomy_id', $target->taxonomy_id)
+            ->where('parent_id', $target->getKey())
+            ->whereKeyNot($term->getKey())
+            ->count();
+
+        return $this->moveTerm(
+            $term,
+            $target,
+            $position,
+        );
+    }
+
+    private function moveBeforeOrAfter(
+        TaxonomyTerm $term,
+        TaxonomyTerm $target,
+        bool $after,
+    ): TaxonomyTerm {
+        $parent = $target->parent_id === null
+            ? null
+            : TaxonomyTerm::query()
+                ->where('taxonomy_id', $target->taxonomy_id)
+                ->findOrFail($target->parent_id);
+
+        $siblings = TaxonomyTerm::query()
+            ->where('taxonomy_id', $target->taxonomy_id)
+            ->when(
+                $target->parent_id === null,
+                fn ($query) => $query->whereNull('parent_id'),
+                fn ($query) => $query->where('parent_id', $target->parent_id),
+            )
+            ->whereKeyNot($term->getKey())
+            ->orderBy('position')
+            ->orderBy('name')
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values();
+
+        $targetIndex = $siblings->search(
+            fn (int $id): bool => $id === (int) $target->getKey(),
+        );
+
+        if ($targetIndex === false) {
+            throw new InvalidTaxonomyDropException(
+                'The taxonomy drop target could not be found in its sibling group.',
+            );
+        }
+
+        $position = $after
+            ? $targetIndex + 1
+            : $targetIndex;
+
+        return $this->moveTerm(
+            $term,
+            $parent,
+            $position,
+        );
     }
 }

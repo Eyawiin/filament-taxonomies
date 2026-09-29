@@ -1,8 +1,11 @@
 <?php
 
+use Eyawiin\FilamentTaxonomies\Enums\TaxonomyTermDropPosition;
+use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyDropException;
 use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyOrderException;
 use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyParentException;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
+use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
 
 function createThemeTree(): array
@@ -721,4 +724,325 @@ it('rejects negative destination positions', function (): void {
             -1,
         ),
     )->toThrow(InvalidTaxonomyOrderException::class);
+});
+
+it('moves a term before another sibling', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $first = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+        'position' => 0,
+    ]);
+
+    $second = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+        'position' => 1,
+    ]);
+
+    $third = $taxonomy->terms()->create([
+        'name' => 'Countries',
+        'slug' => 'countries',
+        'position' => 2,
+    ]);
+
+    app(TaxonomyTreeService::class)->moveRelativeTo(
+        $third,
+        $first,
+        TaxonomyTermDropPosition::Before,
+    );
+
+    expect(
+        TaxonomyTerm::query()
+            ->where('taxonomy_id', $taxonomy->getKey())
+            ->whereNull('parent_id')
+            ->orderBy('position')
+            ->pluck('id')
+            ->all(),
+    )->toBe([
+        $third->getKey(),
+        $first->getKey(),
+        $second->getKey(),
+    ]);
+});
+
+it('moves a term after another sibling', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $first = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+        'position' => 0,
+    ]);
+
+    $second = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+        'position' => 1,
+    ]);
+
+    $third = $taxonomy->terms()->create([
+        'name' => 'Countries',
+        'slug' => 'countries',
+        'position' => 2,
+    ]);
+
+    app(TaxonomyTreeService::class)->moveRelativeTo(
+        $first,
+        $second,
+        TaxonomyTermDropPosition::After,
+    );
+
+    expect(
+        TaxonomyTerm::query()
+            ->where('taxonomy_id', $taxonomy->getKey())
+            ->whereNull('parent_id')
+            ->orderBy('position')
+            ->pluck('id')
+            ->all(),
+    )->toBe([
+        $second->getKey(),
+        $first->getKey(),
+        $third->getKey(),
+    ]);
+});
+
+it('moves a term inside another term', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $parent = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+        'position' => 0,
+    ]);
+
+    $term = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+        'position' => 1,
+    ]);
+
+    app(TaxonomyTreeService::class)->moveRelativeTo(
+        $term,
+        $parent,
+        TaxonomyTermDropPosition::Inside,
+    );
+
+    $term->refresh();
+
+    expect($term->parent_id)
+        ->toBe($parent->getKey())
+        ->and($term->position)
+        ->toBe(0);
+});
+
+it('appends a term when moved inside a parent with children', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $parent = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+        'position' => 0,
+    ]);
+
+    $taxonomy->terms()->create([
+        'name' => 'Lion King',
+        'slug' => 'lion-king',
+        'parent_id' => $parent->getKey(),
+        'position' => 0,
+    ]);
+
+    $term = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+        'position' => 1,
+    ]);
+
+    app(TaxonomyTreeService::class)->moveRelativeTo(
+        $term,
+        $parent,
+        TaxonomyTermDropPosition::Inside,
+    );
+
+    $term->refresh();
+
+    expect($term->parent_id)
+        ->toBe($parent->getKey())
+        ->and($term->position)
+        ->toBe(1);
+});
+
+it('does not allow dropping a term relative to itself', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $term = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+    ]);
+
+    expect(fn () => app(TaxonomyTreeService::class)->moveRelativeTo(
+        $term,
+        $term,
+        TaxonomyTermDropPosition::Inside,
+    ))->toThrow(InvalidTaxonomyDropException::class);
+});
+
+it('does not allow dropping relative to a term from another taxonomy', function (): void {
+    $theme = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $country = Taxonomy::create([
+        'name' => 'Country',
+        'slug' => 'country',
+    ]);
+
+    $term = $theme->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+    ]);
+
+    $target = $country->terms()->create([
+        'name' => 'Italy',
+        'slug' => 'italy',
+    ]);
+
+    expect(fn () => app(TaxonomyTreeService::class)->moveRelativeTo(
+        $term,
+        $target,
+        TaxonomyTermDropPosition::After,
+    ))->toThrow(InvalidTaxonomyDropException::class);
+});
+
+it('moves a term before a target under another parent', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+        'position' => 0,
+    ]);
+
+    $pixar = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+        'position' => 1,
+    ]);
+
+    $lionKing = $taxonomy->terms()->create([
+        'name' => 'Lion King',
+        'slug' => 'lion-king',
+        'parent_id' => $disney->getKey(),
+        'position' => 0,
+    ]);
+
+    $frozen = $taxonomy->terms()->create([
+        'name' => 'Frozen',
+        'slug' => 'frozen',
+        'parent_id' => $disney->getKey(),
+        'position' => 1,
+    ]);
+
+    $toyStory = $taxonomy->terms()->create([
+        'name' => 'Toy Story',
+        'slug' => 'toy-story',
+        'parent_id' => $pixar->getKey(),
+        'position' => 0,
+    ]);
+
+    $cars = $taxonomy->terms()->create([
+        'name' => 'Cars',
+        'slug' => 'cars',
+        'parent_id' => $pixar->getKey(),
+        'position' => 1,
+    ]);
+
+    app(TaxonomyTreeService::class)->moveRelativeTo(
+        $lionKing,
+        $cars,
+        TaxonomyTermDropPosition::Before,
+    );
+
+    expect($lionKing->fresh())
+        ->parent_id->toBe($pixar->getKey())
+        ->position->toBe(1);
+
+    expect($toyStory->fresh()->position)->toBe(0)
+        ->and($cars->fresh()->position)->toBe(2)
+        ->and($frozen->fresh()->position)->toBe(0);
+});
+
+it('moves a nested term to root when dropped before a root term', function (): void {
+    $taxonomy = Taxonomy::create([
+        'name' => 'Theme',
+        'slug' => 'theme',
+    ]);
+
+    $disney = $taxonomy->terms()->create([
+        'name' => 'Disney',
+        'slug' => 'disney',
+        'position' => 0,
+    ]);
+
+    $pixar = $taxonomy->terms()->create([
+        'name' => 'Pixar',
+        'slug' => 'pixar',
+        'position' => 1,
+    ]);
+
+    $lionKing = $taxonomy->terms()->create([
+        'name' => 'Lion King',
+        'slug' => 'lion-king',
+        'parent_id' => $disney->getKey(),
+        'position' => 0,
+    ]);
+
+    app(TaxonomyTreeService::class)->moveRelativeTo(
+        $lionKing,
+        $pixar,
+        TaxonomyTermDropPosition::Before,
+    );
+
+    expect($lionKing->fresh())
+        ->parent_id->toBeNull()
+        ->position->toBe(1);
+
+    expect($pixar->fresh()->position)->toBe(2);
+});
+
+it('rejects moving a term inside one of its descendants', function (): void {
+    [
+        'disney' => $disney,
+        'simba' => $simba,
+    ] = createThemeTree();
+
+    expect(
+        fn () => app(TaxonomyTreeService::class)->moveRelativeTo(
+            $disney,
+            $simba,
+            TaxonomyTermDropPosition::Inside,
+        ),
+    )->toThrow(InvalidTaxonomyParentException::class);
+
+    expect($disney->fresh()->parent_id)->toBeNull();
 });
