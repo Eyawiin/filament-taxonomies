@@ -12,7 +12,6 @@ use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Schemas\TaxonomyTermForm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Filament\Schemas\Schema;
@@ -47,21 +46,6 @@ class ManageTaxonomyTerms extends Page
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('editTaxonomy')
-                ->label('Edit Taxonomy')
-                ->icon('heroicon-o-pencil-square')
-                ->url(fn (): string => TaxonomyResource::getUrl('edit', [
-                    'record' => $this->getRecord(),
-                ]))
-                ->visible(fn (): bool => TaxonomyResource::canEdit($this->getRecord())),
-
-            DeleteAction::make('deleteTaxonomy')
-                ->label('Delete Taxonomy')
-                ->record(fn (): Taxonomy => $this->getRecord())
-                ->modalDescription('Deleting this taxonomy will also delete all of its terms. Are you sure you want to continue?')
-                ->successRedirectUrl(fn (): string => TaxonomyResource::getUrl('index'))
-                ->visible(fn (): bool => TaxonomyResource::canDelete($this->getRecord())),
-
             Action::make('createTerm')
                 ->label('Create Term')
                 ->icon('heroicon-o-plus')

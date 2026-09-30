@@ -3,7 +3,6 @@
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\ManageTaxonomyTerms;
-use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 
@@ -11,7 +10,7 @@ beforeEach(function () {
     Filament::setCurrentPanel('admin');
 });
 
-it('offers taxonomy edit and delete actions on the manage terms page', function (): void {
+it('only offers term creation in the manage terms header', function (): void {
     $taxonomy = Taxonomy::create([
         'name' => 'Theme',
         'slug' => 'theme',
@@ -21,34 +20,9 @@ it('offers taxonomy edit and delete actions on the manage terms page', function 
         'record' => $taxonomy->getKey(),
     ])
         ->assertSuccessful()
-        ->assertActionVisible('editTaxonomy')
-        ->assertActionHasUrl(
-            'editTaxonomy',
-            TaxonomyResource::getUrl('edit', ['record' => $taxonomy]),
-        )
-        ->assertActionVisible('deleteTaxonomy')
+        ->assertActionDoesNotExist('editTaxonomy')
+        ->assertActionDoesNotExist('deleteTaxonomy')
         ->assertActionVisible('createTerm');
-});
-
-it('deletes the taxonomy and its terms from the manage terms page', function (): void {
-    $taxonomy = Taxonomy::create([
-        'name' => 'Theme',
-        'slug' => 'theme',
-    ]);
-
-    $term = $taxonomy->terms()->create([
-        'name' => 'Disney',
-        'slug' => 'disney',
-    ]);
-
-    Livewire::test(ManageTaxonomyTerms::class, [
-        'record' => $taxonomy->getKey(),
-    ])
-        ->callAction('deleteTaxonomy')
-        ->assertRedirect(TaxonomyResource::getUrl('index'));
-
-    expect(Taxonomy::find($taxonomy->getKey()))->toBeNull()
-        ->and(TaxonomyTerm::find($term->getKey()))->toBeNull();
 });
 
 it('can create a taxonomy term', function (): void {
