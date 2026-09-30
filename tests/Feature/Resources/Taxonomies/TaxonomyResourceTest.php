@@ -1,6 +1,7 @@
 <?php
 
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
+use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\CreateTaxonomy;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\EditTaxonomy;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\ListTaxonomies;
