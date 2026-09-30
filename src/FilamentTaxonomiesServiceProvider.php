@@ -6,6 +6,7 @@ use Eyawiin\FilamentTaxonomies\Commands\FilamentTaxonomiesCommand;
 use Eyawiin\FilamentTaxonomies\Testing\TestsFilamentTaxonomies;
 use Filament\Support\Assets\AlpineComponent;
 use Filament\Support\Assets\Asset;
+use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
 use Filament\Support\Facades\FilamentIcon;
 use Illuminate\Filesystem\Filesystem;
@@ -97,6 +98,7 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
     protected function getAssets(): array
     {
         return [
+            Css::make('taxonomy-controls', __DIR__ . '/../resources/css/taxonomy-controls.css'),
             AlpineComponent::make(
                 'taxonomy-tree',
                 __DIR__ . '/../resources/dist/components/taxonomy-tree.js',

@@ -1,0 +1,28 @@
+[data-taxonomy-row] {
+    transition: background-color 100ms ease;
+}
+[data-taxonomy-row]:hover {
+    background-color: var(--gray-100);
+}
+.dark [data-taxonomy-row]:hover {
+    background-color: rgb(255 255 255 / 5%);
+}
+@media (prefers-reduced-motion: reduce) {
+    [data-taxonomy-row] {
+        transition: none;
+    }
+}
+
+/* Keep each row action's hit area separate from its neighbours. */
+.taxonomy-row-actions {
+    gap: 0.25rem;
+}
+.taxonomy-row-actions > .fi-icon-btn {
+    margin: 0;
+}
+.taxonomy-move-button.fi-icon-btn[aria-disabled='true'] {
+    opacity: 0.3;
+    filter: grayscale(1);
+    cursor: not-allowed;
+    background-color: transparent;
+}

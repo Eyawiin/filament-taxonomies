@@ -115,34 +115,36 @@
                     </div>
                 </div>
 
-                <div class="flex shrink-0 items-center gap-1">
-                    @if ($previousNode !== null)
-                        <x-filament::icon-button
-                            icon="heroicon-o-arrow-up"
-                            label="Move {{ $node['term']->name }} up"
-                            size="sm"
-                            color="gray"
-                            x-on:click="$dispatch('taxonomy-tree-move-term', {
-                                termId: Number($el.closest('[data-taxonomy-term]').dataset.termId),
-                                targetId: Number($el.closest('[data-taxonomy-term]').previousElementSibling.dataset.termId),
-                                placement: 'before',
-                            })"
-                        />
-                    @endif
+                <div class="taxonomy-row-actions flex shrink-0 items-center">
+                    <x-filament::icon-button
+                        icon="heroicon-o-arrow-up"
+                        label="Move {{ $node['term']->name }} up"
+                        :disabled="$previousNode === null"
+                        :tooltip="$previousNode === null ? 'Already the first term at this level' : null"
+                        size="sm"
+                        :color="$previousNode === null ? 'gray' : 'primary'"
+                        class="taxonomy-move-button"
+                        x-on:click="$dispatch('taxonomy-tree-move-term', {
+                            termId: Number($el.closest('[data-taxonomy-term]').dataset.termId),
+                            targetId: Number($el.closest('[data-taxonomy-term]').previousElementSibling.dataset.termId),
+                            placement: 'before',
+                        })"
+                    />
 
-                    @if ($nextNode !== null)
-                        <x-filament::icon-button
-                            icon="heroicon-o-arrow-down"
-                            label="Move {{ $node['term']->name }} down"
-                            size="sm"
-                            color="gray"
-                            x-on:click="$dispatch('taxonomy-tree-move-term', {
-                                termId: Number($el.closest('[data-taxonomy-term]').dataset.termId),
-                                targetId: Number($el.closest('[data-taxonomy-term]').nextElementSibling.dataset.termId),
-                                placement: 'after',
-                            })"
-                        />
-                    @endif
+                    <x-filament::icon-button
+                        icon="heroicon-o-arrow-down"
+                        label="Move {{ $node['term']->name }} down"
+                        :disabled="$nextNode === null"
+                        :tooltip="$nextNode === null ? 'Already the last term at this level' : null"
+                        size="sm"
+                        :color="$nextNode === null ? 'gray' : 'primary'"
+                        class="taxonomy-move-button"
+                        x-on:click="$dispatch('taxonomy-tree-move-term', {
+                            termId: Number($el.closest('[data-taxonomy-term]').dataset.termId),
+                            targetId: Number($el.closest('[data-taxonomy-term]').nextElementSibling.dataset.termId),
+                            placement: 'after',
+                        })"
+                    />
 
                     {{ ($this->editTermAction)([
                         'term' => $node['term']->getKey(),
