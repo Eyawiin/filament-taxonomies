@@ -50,23 +50,35 @@ it('promotes children to root terms when a parent is deleted', function () {
         ->parent_id->toBeNull();
 });
 
-it('deletes all terms when a taxonomy is deleted', function () {
+it('deletes its terms while preserving terms in other taxonomies', function () {
     $taxonomy = Taxonomy::create([
         'name' => 'Theme',
         'slug' => 'theme',
     ]);
 
-    $taxonomy->terms()->create([
+    $firstTerm = $taxonomy->terms()->create([
         'name' => 'Disney',
         'slug' => 'disney',
     ]);
 
-    $taxonomy->terms()->create([
+    $secondTerm = $taxonomy->terms()->create([
         'name' => 'Countries',
         'slug' => 'countries',
     ]);
 
+    $otherTaxonomy = Taxonomy::create([
+        'name' => 'Genre',
+        'slug' => 'genre',
+    ]);
+
+    $otherTerm = $otherTaxonomy->terms()->create([
+        'name' => 'Comedy',
+        'slug' => 'comedy',
+    ]);
+
     $taxonomy->delete();
 
-    expect(TaxonomyTerm::count())->toBe(0);
+    expect(TaxonomyTerm::find($firstTerm->id))->toBeNull()
+        ->and(TaxonomyTerm::find($secondTerm->id))->toBeNull()
+        ->and(TaxonomyTerm::find($otherTerm->id))->not->toBeNull();
 });
