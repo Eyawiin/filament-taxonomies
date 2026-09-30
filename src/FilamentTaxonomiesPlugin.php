@@ -4,6 +4,7 @@ namespace Eyawiin\FilamentTaxonomies;
 
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Filament\Contracts\Plugin;
+use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 
 class FilamentTaxonomiesPlugin implements Plugin
@@ -22,7 +23,9 @@ class FilamentTaxonomiesPlugin implements Plugin
 
     public function boot(Panel $panel): void
     {
-        //
+        $panel->navigationGroups([
+            NavigationGroup::make('Taxonomies')->collapsible(),
+        ]);
     }
 
     public static function make(): static
