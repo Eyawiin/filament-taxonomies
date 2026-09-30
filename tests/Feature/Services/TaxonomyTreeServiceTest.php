@@ -1046,3 +1046,159 @@ it('rejects moving a term inside one of its descendants', function (): void {
 
     expect($disney->fresh()->parent_id)->toBeNull();
 });
+
+it('handles relative sibling moves in both directions without index drift', function (
+    int $source,
+    int $target,
+    TaxonomyTermDropPosition $placement,
+    array $expected,
+): void {
+    $taxonomy = Taxonomy::create(['name' => 'Theme', 'slug' => 'theme']);
+    $terms = [];
+
+    foreach (['A', 'B', 'C', 'D'] as $position => $name) {
+        $terms[] = $taxonomy->terms()->create([
+            'name' => $name,
+            'slug' => strtolower($name),
+            'position' => $position * 10,
+        ]);
+    }
+
+    app(TaxonomyTreeService::class)->moveRelativeTo($terms[$source], $terms[$target], $placement);
+
+    $siblings = $taxonomy->terms()->whereNull('parent_id')->orderBy('position')->get();
+
+    expect($siblings->modelKeys())->toBe(array_map(fn (int $index): int => $terms[$index]->id, $expected))
+        ->and($siblings->pluck('position')->all())->toBe([0, 1, 2, 3]);
+})->with([
+    'forward before' => [0, 2, TaxonomyTermDropPosition::Before, [1, 0, 2, 3]],
+    'backward before' => [3, 1, TaxonomyTermDropPosition::Before, [0, 3, 1, 2]],
+    'forward after' => [0, 2, TaxonomyTermDropPosition::After, [1, 2, 0, 3]],
+    'backward after' => [3, 1, TaxonomyTermDropPosition::After, [0, 1, 3, 2]],
+    'already before' => [1, 2, TaxonomyTermDropPosition::Before, [0, 1, 2, 3]],
+    'already after' => [2, 1, TaxonomyTermDropPosition::After, [0, 1, 2, 3]],
+]);
+
+it('moves a subtree between deep branches and normalizes both sibling groups', function (
+    TaxonomyTermDropPosition $placement,
+    array $expectedNames,
+): void {
+    [
+        'taxonomy' => $taxonomy,
+        'disney' => $disney,
+        'lionKing' => $lionKing,
+        'simba' => $simba,
+        'liloAndStitch' => $lilo,
+    ] = createThemeTree();
+
+    $lilo->update(['position' => 8]);
+    $destination = $taxonomy->terms()->create([
+        'name' => 'Destination', 'slug' => 'destination', 'parent_id' => $lilo->id,
+    ]);
+    $first = $taxonomy->terms()->create([
+        'name' => 'First', 'slug' => 'first', 'parent_id' => $destination->id, 'position' => 5,
+    ]);
+    $target = $taxonomy->terms()->create([
+        'name' => 'Target', 'slug' => 'target', 'parent_id' => $destination->id, 'position' => 9,
+    ]);
+
+    app(TaxonomyTreeService::class)->moveRelativeTo($lionKing, $target, $placement);
+
+    $siblings = $destination->children()->orderBy('position')->get();
+
+    expect($lionKing->fresh()->parent_id)->toBe($destination->id)
+        ->and($simba->fresh()->parent_id)->toBe($lionKing->id)
+        ->and($siblings->pluck('name')->all())->toBe($expectedNames)
+        ->and($siblings->pluck('position')->all())->toBe([0, 1, 2])
+        ->and($disney->children()->pluck('id')->all())->toBe([$lilo->id])
+        ->and($lilo->fresh()->position)->toBe(0)
+        ->and($first->fresh()->parent_id)->toBe($destination->id);
+})->with([
+    'before' => [TaxonomyTermDropPosition::Before, ['First', 'Lion King', 'Target']],
+    'after' => [TaxonomyTermDropPosition::After, ['First', 'Target', 'Lion King']],
+]);
+
+it('moves a nested subtree to root relative to a root term', function (
+    TaxonomyTermDropPosition $placement,
+    array $expectedNames,
+): void {
+    [
+        'taxonomy' => $taxonomy,
+        'disney' => $disney,
+        'lionKing' => $lionKing,
+        'simba' => $simba,
+        'liloAndStitch' => $lilo,
+    ] = createThemeTree();
+
+    app(TaxonomyTreeService::class)->moveRelativeTo($lionKing, $disney, $placement);
+
+    $roots = $taxonomy->terms()->whereNull('parent_id')->orderBy('position')->get();
+
+    expect($roots->pluck('name')->all())->toBe($expectedNames)
+        ->and($roots->pluck('position')->all())->toBe([0, 1])
+        ->and($lionKing->fresh()->parent_id)->toBeNull()
+        ->and($simba->fresh()->parent_id)->toBe($lionKing->id)
+        ->and($lilo->fresh()->position)->toBe(0);
+})->with([
+    'before' => [TaxonomyTermDropPosition::Before, ['Lion King', 'Disney']],
+    'after' => [TaxonomyTermDropPosition::After, ['Disney', 'Lion King']],
+]);
+
+it('appends an existing child inside its current parent without counting itself', function (): void {
+    [
+        'disney' => $disney,
+        'lionKing' => $lionKing,
+        'simba' => $simba,
+        'liloAndStitch' => $lilo,
+    ] = createThemeTree();
+
+    $lionKing->update(['position' => 0]);
+    $lilo->update(['position' => 4]);
+
+    $service = app(TaxonomyTreeService::class);
+    $service->moveRelativeTo($lionKing, $disney, TaxonomyTermDropPosition::Inside);
+    $service->moveRelativeTo($lionKing, $disney, TaxonomyTermDropPosition::Inside);
+
+    expect($disney->children()->orderBy('position')->pluck('id')->all())->toBe([$lilo->id, $lionKing->id])
+        ->and($lilo->fresh()->position)->toBe(0)
+        ->and($lionKing->fresh()->position)->toBe(1)
+        ->and($simba->fresh()->parent_id)->toBe($lionKing->id);
+});
+
+it('rejects relative moves whose derived parent is self or a descendant without changing the tree', function (
+    string $targetKey,
+    TaxonomyTermDropPosition $placement,
+): void {
+    $tree = createThemeTree();
+    $before = $tree['taxonomy']->terms()->orderBy('id')->get()->toArray();
+
+    expect(fn () => app(TaxonomyTreeService::class)->moveRelativeTo(
+        $tree['disney'],
+        $tree[$targetKey],
+        $placement,
+    ))->toThrow(InvalidTaxonomyParentException::class);
+
+    expect($tree['taxonomy']->terms()->orderBy('id')->get()->toArray())->toBe($before);
+})->with(['direct child' => 'lionKing', 'deep descendant' => 'simba'])
+    ->with([TaxonomyTermDropPosition::Before, TaxonomyTermDropPosition::After]);
+
+it('rejects every self or foreign-taxonomy relative drop without changing terms', function (
+    bool $foreign,
+    TaxonomyTermDropPosition $placement,
+): void {
+    ['taxonomy' => $taxonomy, 'disney' => $term] = createThemeTree();
+    $target = $term;
+
+    if ($foreign) {
+        $other = Taxonomy::create(['name' => 'Country', 'slug' => 'country']);
+        $target = $other->terms()->create(['name' => 'Italy', 'slug' => 'italy']);
+    }
+
+    $before = TaxonomyTerm::query()->orderBy('id')->get()->toArray();
+
+    expect(fn () => app(TaxonomyTreeService::class)->moveRelativeTo($term, $target, $placement))
+        ->toThrow(InvalidTaxonomyDropException::class);
+
+    expect(TaxonomyTerm::query()->orderBy('id')->get()->toArray())->toBe($before);
+})->with(['self' => false, 'foreign taxonomy' => true])
+    ->with(TaxonomyTermDropPosition::cases());

@@ -1,15 +1,12 @@
 @props([
     'nodes',
-    'parentId' => null,
 ])
 
-<ul
-    data-taxonomy-sortable
-    data-parent-id="{{ $parentId }}"
-    class="m-0 list-none space-y-2 p-0"
->
-    @foreach ($nodes as $node)
+<ul class="m-0 list-none space-y-2 p-0">
+    @foreach ($nodes as $nodeIndex => $node)
         @php
+            $previousNode = $nodes[$nodeIndex - 1] ?? null;
+            $nextNode = $nodes[$nodeIndex + 1] ?? null;
             $hasChildren = $node['children'] !== [];
             $termId = (int) $node['term']->getKey();
 
@@ -33,10 +30,27 @@
             "
         >
             <div
+                wire:ignore.self
+                data-taxonomy-row
+                data-has-children="{{ $hasChildren ? 'true' : 'false' }}"
+                x-bind:data-expanded="expanded ? 'true' : 'false'"
+                draggable="true"
                 class="
-                    flex items-center gap-3 rounded-xl border border-gray-200
+                    relative flex items-center gap-3 rounded-xl border border-gray-200
                     bg-white px-4 py-3 shadow-sm
                     dark:border-white/10 dark:bg-gray-900
+                    data-[dragging=true]:opacity-50
+                    data-[drop-placement=inside]:outline-2
+                    data-[drop-placement=inside]:outline-primary-500
+                    data-[drop-invalid=true]:outline-2
+                    data-[drop-invalid=true]:outline-danger-500
+                    data-[drop-disabled=true]:opacity-50
+                    before:pointer-events-none before:absolute before:inset-x-0
+                    before:-top-1 before:h-0.5 before:bg-primary-500 before:opacity-0
+                    data-[drop-placement=before]:before:opacity-100
+                    after:pointer-events-none after:absolute after:inset-x-0
+                    after:-bottom-1 after:h-0.5 after:bg-primary-500 after:opacity-0
+                    data-[drop-placement=after]:after:opacity-100
                 "
             >
                 <div
@@ -53,6 +67,8 @@
                 <div class="flex shrink-0 items-center">
                     @if ($hasChildren)
                       <div
+                          wire:key="taxonomy-term-toggle-{{ $termId }}"
+                          wire:ignore.self
                           class="transition-transform duration-100 ease-out"
                           x-bind:class="expanded ? 'rotate-90' : 'rotate-0'"
                       >
@@ -66,7 +82,11 @@
                           />
                       </div>
                   @else
-                    <div class="invisible pointer-events-none" aria-hidden="true">
+                    <div
+                        wire:key="taxonomy-term-placeholder-{{ $termId }}"
+                        class="invisible pointer-events-none"
+                        aria-hidden="true"
+                    >
                         <x-filament::icon-button
                             icon="heroicon-o-chevron-right"
                             label="Toggle children"
@@ -96,6 +116,34 @@
                 </div>
 
                 <div class="flex shrink-0 items-center gap-1">
+                    @if ($previousNode !== null)
+                        <x-filament::icon-button
+                            icon="heroicon-o-arrow-up"
+                            label="Move {{ $node['term']->name }} up"
+                            size="sm"
+                            color="gray"
+                            x-on:click="$dispatch('taxonomy-tree-move-term', {
+                                termId: Number($el.closest('[data-taxonomy-term]').dataset.termId),
+                                targetId: Number($el.closest('[data-taxonomy-term]').previousElementSibling.dataset.termId),
+                                placement: 'before',
+                            })"
+                        />
+                    @endif
+
+                    @if ($nextNode !== null)
+                        <x-filament::icon-button
+                            icon="heroicon-o-arrow-down"
+                            label="Move {{ $node['term']->name }} down"
+                            size="sm"
+                            color="gray"
+                            x-on:click="$dispatch('taxonomy-tree-move-term', {
+                                termId: Number($el.closest('[data-taxonomy-term]').dataset.termId),
+                                targetId: Number($el.closest('[data-taxonomy-term]').nextElementSibling.dataset.termId),
+                                placement: 'after',
+                            })"
+                        />
+                    @endif
+
                     {{ ($this->editTermAction)([
                         'term' => $node['term']->getKey(),
                     ]) }}
@@ -106,22 +154,13 @@
                 </div>
             </div>
 
-            <div
-                data-taxonomy-children-wrapper
-                @if ($hasChildren)
-                    x-show="expanded"
-                    x-collapse.duration.100ms
-                @endif
-                @class([
-                    'ps-8',
-                    'pt-2' => $hasChildren,
-                ])
-            >
-                <x-filament-taxonomies::taxonomy-tree
-                    :nodes="$node['children']"
-                    :parent-id="$termId"
-                />
-            </div>
+            @if ($hasChildren)
+                <div wire:ignore.self x-show="expanded" x-collapse.duration.100ms>
+                    <div class="ps-8 pt-2">
+                        <x-filament-taxonomies::taxonomy-tree :nodes="$node['children']" />
+                    </div>
+                </div>
+            @endif
         </li>
     @endforeach
 </ul>

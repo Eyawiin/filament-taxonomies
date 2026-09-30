@@ -7,7 +7,7 @@
 
 
 
-This is where your description should go. Limit it to a paragraph or two. Consider adding a small example.
+Filament Taxonomies lets administrators define taxonomies and organize their terms into nested trees. The package registers a Taxonomies resource in your Filament panel, where you can create taxonomies and manage their terms.
 
 ## Installation
 
@@ -54,10 +54,21 @@ return [
 
 ## Usage
 
+Register the plugin on your Filament panel:
+
 ```php
-$filamentTaxonomies = new Eyawiin\FilamentTaxonomies();
-echo $filamentTaxonomies->echoPhrase('Hello, Eyawiin!');
+use Eyawiin\FilamentTaxonomies\FilamentTaxonomiesPlugin;
+use Filament\Panel;
+
+public function panel(Panel $panel): Panel
+{
+    return $panel
+        // Keep your existing panel configuration here.
+        ->plugin(FilamentTaxonomiesPlugin::make());
+}
 ```
+
+Open **Taxonomies** in the panel navigation to create a taxonomy, then choose **Manage Terms** to organize its terms in a tree. Drag a term by its handle and drop it near the top of another row to place it before, in the middle to make it a child, or near the bottom to place it after. You can also use the row's **Move up** and **Move down** buttons to reorder siblings without dragging. Use **Edit** to change a term's parent.
 
 ## Testing
 

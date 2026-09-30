@@ -2,6 +2,10 @@
 
 namespace Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages;
 
+use Eyawiin\FilamentTaxonomies\Enums\TaxonomyTermDropPosition;
+use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyDropException;
+use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyOrderException;
+use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyParentException;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Schemas\TaxonomyTermForm;
@@ -11,6 +15,7 @@ use Filament\Actions\Action;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Filament\Schemas\Schema;
+use Illuminate\Validation\ValidationException;
 
 class ManageTaxonomyTerms extends Page
 {
@@ -159,6 +164,40 @@ class ManageTaxonomyTerms extends Page
 
                 $term->deleteOrFail();
             });
+    }
+
+    public function dropTerm(
+        int $termId,
+        int $targetId,
+        string $placement,
+    ): void {
+        $this->resetErrorBag(['placement', 'drop']);
+
+        $position = TaxonomyTermDropPosition::tryFrom($placement);
+
+        if ($position === null) {
+            throw ValidationException::withMessages([
+                'placement' => 'The drop placement must be before, inside, or after.',
+            ]);
+        }
+
+        $term = $this->resolveTerm(['term' => $termId]);
+        $target = $this->resolveTerm(['term' => $targetId]);
+
+        try {
+            app(TaxonomyTreeService::class)->moveRelativeTo($term, $target, $position);
+        } catch (InvalidTaxonomyDropException | InvalidTaxonomyParentException | InvalidTaxonomyOrderException $exception) {
+            throw ValidationException::withMessages([
+                'drop' => $exception->getMessage(),
+            ]);
+        }
+
+        if ($position === TaxonomyTermDropPosition::Inside) {
+            $this->dispatch(
+                'taxonomy-tree-expand-term',
+                termId: (int) $target->getKey(),
+            );
+        }
     }
 
     public function moveTerm(
