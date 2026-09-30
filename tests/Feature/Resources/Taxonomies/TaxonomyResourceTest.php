@@ -959,14 +959,16 @@ it('cannot use foreign or missing terms in a Livewire drop', function (string $i
 
     $before = TaxonomyTerm::query()->orderBy('id')->get()->toArray();
 
-    Livewire::test(ManageTaxonomyTerms::class, ['record' => $taxonomy->id])
+    // Livewire versions differ in whether model-not-found exceptions become 404 responses.
+    $this->withoutExceptionHandling();
+
+    expect(fn () => Livewire::test(ManageTaxonomyTerms::class, ['record' => $taxonomy->id])
         ->call(
             'dropTerm',
             $invalidArgument === 'source' ? $invalidId : $local->id,
             $invalidArgument === 'target' ? $invalidId : $local->id,
             'inside',
-        )
-        ->assertNotFound();
+        ))->toThrow(ModelNotFoundException::class);
 
     expect(TaxonomyTerm::query()->orderBy('id')->get()->toArray())->toBe($before);
 })->with(['source', 'target'])
