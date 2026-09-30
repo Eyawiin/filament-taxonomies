@@ -14,31 +14,27 @@ class TaxonomyParentSelect
         Taxonomy $taxonomy,
         ?TaxonomyTerm $term = null,
     ): Select {
-        $query = TaxonomyTerm::query()
-            ->where('taxonomy_id', $taxonomy->getKey())
-            ->orderBy('name');
-
-        if ($term !== null) {
-            $excludedIds = [
-                (int) $term->getKey(),
-                ...app(TaxonomyTreeService::class)->getDescendantIds($term),
-            ];
-
-            $query->whereNotIn('id', $excludedIds);
-        }
-
-        $options = $query
-            ->pluck('name', 'id')
-            ->mapWithKeys(
-                static fn (mixed $name, mixed $id): array => [
-                    (int) $id => (string) $name,
-                ],
-            )
-            ->all();
+        $treeService = app(TaxonomyTreeService::class);
+        $disabledIds = $term === null ? [] : [
+            (int) $term->getKey(),
+            ...$treeService->getDescendantIds($term),
+        ];
+        $nodes = self::treeNodes(
+            $treeService->getTree($taxonomy),
+            $disabledIds,
+            $term === null ? null : (int) $term->getKey(),
+        );
+        $options = array_column($nodes, 'name', 'id');
 
         return Select::make('parent_id')
             ->label('Parent')
+            ->view('filament-taxonomies::forms.parent-tree-select')
+            ->viewData(['nodes' => $nodes])
             ->options($options)
+            ->disableOptionWhen(
+                static fn ($value): bool => in_array((int) $value, $disabledIds, true),
+            )
+            ->optionsLimit(max(50, count($options)))
             ->searchable()
             ->native(false)
             ->nullable()
@@ -53,5 +49,43 @@ class TaxonomyParentSelect
                     );
                 },
             );
+    }
+
+    /**
+     * @param  array<array{term: TaxonomyTerm, children: array}>  $nodes
+     * @param  list<int>  $disabledIds
+     * @param  list<int>  $ancestors
+     * @return list<array{id: int, name: string, ancestors: list<int>, hasChildren: bool, disabled: bool, reason: string}>
+     */
+    private static function treeNodes(
+        array $nodes,
+        array $disabledIds,
+        ?int $currentTermId,
+        array $ancestors = [],
+    ): array {
+        $options = [];
+
+        foreach ($nodes as $node) {
+            $id = (int) $node['term']->getKey();
+            $disabled = in_array($id, $disabledIds, true);
+            $options[] = [
+                'id' => $id,
+                'name' => $node['term']->name,
+                'ancestors' => $ancestors,
+                'hasChildren' => $node['children'] !== [],
+                'disabled' => $disabled,
+                'reason' => $id === $currentTermId
+                    ? 'Current term'
+                    : ($disabled ? 'Would create a cycle' : ''),
+            ];
+            array_push($options, ...self::treeNodes(
+                $node['children'],
+                $disabledIds,
+                $currentTermId,
+                [...$ancestors, $id],
+            ));
+        }
+
+        return $options;
     }
 }

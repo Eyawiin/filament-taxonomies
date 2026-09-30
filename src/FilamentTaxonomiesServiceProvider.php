@@ -100,6 +100,10 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
         return [
             Css::make('taxonomy-controls', __DIR__ . '/../resources/css/taxonomy-controls.css'),
             AlpineComponent::make(
+                'taxonomy-parent-tree',
+                __DIR__ . '/../resources/dist/components/taxonomy-parent-tree.js',
+            ),
+            AlpineComponent::make(
                 'taxonomy-tree',
                 __DIR__ . '/../resources/dist/components/taxonomy-tree.js',
             ),

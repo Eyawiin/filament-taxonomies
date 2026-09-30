@@ -67,3 +67,9 @@ compile({
 }).then(() => {
     console.log('Compiled taxonomy-tree.js')
 })
+
+compile({
+    ...defaultOptions,
+    entryPoints: ['./resources/js/components/taxonomy-parent-tree.js'],
+    outfile: './resources/dist/components/taxonomy-parent-tree.js',
+})
