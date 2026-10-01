@@ -326,3 +326,21 @@ automated database lane retain their documented scope.
 
 No unresolved F2 finding remains. The user authorized commit/push once the review
 and corrections passed; that condition is satisfied.
+
+### F2 CI compatibility correction — 2026-10-02
+
+The pushed F2 revision (f012ec9) failed all 16 Laravel 11/12 matrix jobs;
+the eight Laravel 13 jobs passed. Both duplicated-join visibility cases used
+Eloquent's newer orWhereKey() helper in their test scope. Laravel 11/12
+reported an undefined method before either behavioral assertion ran.
+
+The test now uses orWhere() with the model's qualified key column.
+Both visibility cases and their assertions remain unchanged; runtime code,
+dependencies, and CI configuration are unchanged.
+
+The original failure was reproduced in isolated Laravel 11/12 installs using
+the workflow's prefer-lowest dependency commands. With the correction, each
+full suite passes: 215 tests / 819 assertions. The current Laravel 13 suite
+passes: 215 tests / 825 assertions. All local runs used PHP 8.3 on Ubuntu WSL.
+Changed-file Pint and whitespace checks pass. These local runs do not establish
+the PHP 8.4 or Windows results; the new GitHub matrix will verify those.

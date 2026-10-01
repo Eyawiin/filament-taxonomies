@@ -73,7 +73,7 @@ it('checks exact reorder visibility when a join duplicates sibling rows', functi
     TaxonomyTerm::addGlobalScope('duplicated-visibility', function (Builder $query) use ($hidden, $moving, $hideSibling): void {
         $query->crossJoin(DB::raw('(select 1 as copy union all select 2 as copy) as copies'))
             ->when($hideSibling, fn (Builder $query) => $query->whereKeyNot($hidden->id))
-            ->where(fn (Builder $query) => $query->where('copies.copy', 1)->orWhereKey($moving->id));
+            ->where(fn (Builder $query) => $query->where('copies.copy', 1)->orWhere($query->getModel()->getQualifiedKeyName(), $moving->id));
     });
 
     try {
