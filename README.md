@@ -74,7 +74,14 @@ Open **Taxonomies** in the panel navigation to create a taxonomy, then choose **
 
 ```bash
 composer test
+npm run test:js
 ```
+
+Foundation contracts and executable pending regressions are documented in
+[the contributor foundation guide](.github/FOUNDATION.md). Run `composer test:pending`
+and `npm run test:js:pending` explicitly to reproduce unfinished milestone requirements;
+these currently fail and are separate from required CI. Promote each regression into
+the required suite with its implementation.
 
 ## Changelog
 

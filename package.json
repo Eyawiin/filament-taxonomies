@@ -3,6 +3,7 @@
     "type": "module",
     "scripts": {
         "test:js": "node --test tests-js/*.test.js",
+        "test:js:pending": "node --test tests-js/pending/*.test.js",
         "dev": "node bin/build.js --dev",
         "build": "node bin/build.js",
         "build:theme": "vite build",

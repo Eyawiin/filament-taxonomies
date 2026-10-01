@@ -36,6 +36,12 @@ Before submitting a pull request:
 - Check the codebase to ensure that your feature doesn't already exist.
 - Check the pull requests to ensure that another person hasn't already submitted the feature or fix.
 
+## Foundation work
+
+Read [the foundation contracts](FOUNDATION.md) before changing hierarchy behavior,
+authorization, or installation. The guide explains current guarantees, pending
+regression commands, and how to promote a fixed specification into required CI.
+
 ## Requirements
 
 If the project maintainer has any additional requirements, you will find them listed here.

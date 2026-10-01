@@ -12,3 +12,4 @@ phpstan.neon
 testbench.yaml
 vendor
 PROJECT_CONTEXT.md
+/ROADMAP.md

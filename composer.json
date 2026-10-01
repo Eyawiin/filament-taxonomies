@@ -64,6 +64,7 @@
         "lint": "pint",
         "refactor": "rector",
         "test": "pest",
+        "test:pending": "pest --no-coverage tests/Pending",
         "test:lint": "pint --test",
         "test:refactor": "rector --dry-run",
         "clear": "@php vendor/bin/testbench package:purge-skeleton --ansi",
