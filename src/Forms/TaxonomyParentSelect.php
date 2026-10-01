@@ -4,16 +4,29 @@ namespace Eyawiin\FilamentTaxonomies\Forms;
 
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
+use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
 use Filament\Forms\Components\Select;
 use Illuminate\Validation\Rules\Exists;
 
 class TaxonomyParentSelect
 {
+    /**
+     * @param  class-string<TaxonomyResource>  $resource
+     */
     public static function make(
         Taxonomy $taxonomy,
         ?TaxonomyTerm $term = null,
+        string $resource = TaxonomyResource::class,
     ): Select {
+        /** @var Taxonomy $taxonomy */
+        $taxonomy = $resource::getEloquentQuery()->whereKey($taxonomy->getKey())->firstOrFail();
+        abort_unless($resource::canAccess() && $resource::canView($taxonomy), 403);
+
+        if ($term !== null) {
+            $term = $taxonomy->terms()->findOrFail($term->getKey());
+        }
+
         $treeService = app(TaxonomyTreeService::class);
         $disabledIds = $term === null ? [] : [
             (int) $term->getKey(),

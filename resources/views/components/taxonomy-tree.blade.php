@@ -9,6 +9,7 @@
             $nextNode = $nodes[$nodeIndex + 1] ?? null;
             $hasChildren = $node['children'] !== [];
             $termId = (int) $node['term']->getKey();
+            $canMove = \Eyawiin\FilamentTaxonomies\Authorization\TaxonomyTermAuthorization::update($node['term'])->allowed();
 
             $storageKey = sprintf(
                 'eyawiin-filament-taxonomies:tree:%s:term:%s:expanded',
@@ -20,6 +21,7 @@
         <li
             wire:key="taxonomy-term-{{ $node['term']->getKey() }}"
             data-taxonomy-term
+            data-can-move="{{ $canMove ? 'true' : 'false' }}"
             data-term-id="{{ $node['term']->getKey() }}"
             x-data="{ expanded: $persist(true).as(@js($storageKey)) }"
             x-on:taxonomy-tree-set-expanded.window="expanded = $event.detail.expanded"
@@ -34,7 +36,7 @@
                 data-taxonomy-row
                 data-has-children="{{ $hasChildren ? 'true' : 'false' }}"
                 x-bind:data-expanded="expanded ? 'true' : 'false'"
-                draggable="true"
+                draggable="{{ $canMove ? 'true' : 'false' }}"
                 class="
                     relative flex items-center gap-3 rounded-xl border border-gray-200
                     bg-white px-4 py-3 shadow-sm
@@ -54,9 +56,9 @@
                 "
             >
                 <div
-                    data-taxonomy-drag-handle
-                    class="flex h-8 w-8 shrink-0 cursor-grab touch-none select-none items-center justify-center text-gray-400 active:cursor-grabbing dark:text-gray-500"
-                    title="Drag to reorder"
+                    @if ($canMove) data-taxonomy-drag-handle @endif
+                    class="flex h-8 w-8 shrink-0 touch-none select-none items-center justify-center text-gray-400 dark:text-gray-500 {{ $canMove ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed opacity-40' }}"
+                    title="{{ $canMove ? 'Drag to reorder' : 'You do not have permission to move this term' }}"
                 >
                     <x-filament::icon
                         icon="heroicon-o-bars-3"
@@ -119,10 +121,10 @@
                     <x-filament::icon-button
                         icon="heroicon-o-arrow-up"
                         label="Move {{ $node['term']->name }} up"
-                        :disabled="$previousNode === null"
-                        :tooltip="$previousNode === null ? 'Already the first term at this level' : null"
+                        :disabled="! $canMove || $previousNode === null"
+                        :tooltip="! $canMove ? 'You do not have permission to move this term' : ($previousNode === null ? 'Already the first term at this level' : null)"
                         size="sm"
-                        :color="$previousNode === null ? 'gray' : 'primary'"
+                        :color="! $canMove || $previousNode === null ? 'gray' : 'primary'"
                         class="taxonomy-move-button"
                         x-on:click="$dispatch('taxonomy-tree-move-term', {
                             termId: Number($el.closest('[data-taxonomy-term]').dataset.termId),
@@ -134,10 +136,10 @@
                     <x-filament::icon-button
                         icon="heroicon-o-arrow-down"
                         label="Move {{ $node['term']->name }} down"
-                        :disabled="$nextNode === null"
-                        :tooltip="$nextNode === null ? 'Already the last term at this level' : null"
+                        :disabled="! $canMove || $nextNode === null"
+                        :tooltip="! $canMove ? 'You do not have permission to move this term' : ($nextNode === null ? 'Already the last term at this level' : null)"
                         size="sm"
-                        :color="$nextNode === null ? 'gray' : 'primary'"
+                        :color="! $canMove || $nextNode === null ? 'gray' : 'primary'"
                         class="taxonomy-move-button"
                         x-on:click="$dispatch('taxonomy-tree-move-term', {
                             termId: Number($el.closest('[data-taxonomy-term]').dataset.termId),

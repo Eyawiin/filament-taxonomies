@@ -33,6 +33,10 @@ class TaxonomyResource extends Resource
      */
     public static function getNavigationItems(): array
     {
+        if (! static::canAccess()) {
+            return [];
+        }
+
         $items = [
             NavigationItem::make('Taxonomies')
                 ->key(static::class)
@@ -45,7 +49,12 @@ class TaxonomyResource extends Resource
                 ->url(static::getUrl('index')),
         ];
 
-        foreach (Taxonomy::query()->withCount('terms')->orderBy('name')->orderBy('id')->get() as $index => $taxonomy) {
+        /** @var Taxonomy $taxonomy */
+        foreach (static::getEloquentQuery()->withCount('terms')->orderBy('name')->orderBy('id')->get() as $index => $taxonomy) {
+            if (! static::canView($taxonomy)) {
+                continue;
+            }
+
             $taxonomyId = (int) $taxonomy->getKey();
 
             $items[] = NavigationItem::make($taxonomy->name)
@@ -72,7 +81,7 @@ class TaxonomyResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return TaxonomiesTable::configure($table);
+        return TaxonomiesTable::configure($table, static::class);
     }
 
     public static function getPages(): array

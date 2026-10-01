@@ -67,7 +67,10 @@ export function createTreeDrag({ root, isBusy, onDrop }) {
             element: target.element,
             placement,
             timeout: setTimeout(() => {
-                const termId = Number(target.element.closest('[data-taxonomy-term]').dataset.termId)
+                const termId = Number(
+                    target.element.closest('[data-taxonomy-term]').dataset
+                        .termId,
+                )
                 target.element.dispatchEvent(
                     new CustomEvent('taxonomy-tree-expand-term', {
                         bubbles: true,
@@ -134,7 +137,8 @@ export function createTreeDrag({ root, isBusy, onDrop }) {
                 draggable({
                     element: row,
                     dragHandle: handle,
-                    canDrag: () => !isBusy(),
+                    canDrag: () =>
+                        !isBusy() && term.dataset.canMove !== 'false',
                     getInitialData: () => ({ tree, termId }),
                 }),
                 dropTargetForElements({
@@ -178,7 +182,12 @@ export function createTreeDrag({ root, isBusy, onDrop }) {
             clearPendingExpand()
             const target = location.current.dropTargets[0]
 
-            if (target?.data.tree === tree && !isBusy()) {
+            if (
+                target?.data.tree === tree &&
+                !isBusy() &&
+                source.element.closest('[data-taxonomy-term]').dataset
+                    .canMove !== 'false'
+            ) {
                 onDrop(
                     source.data.termId,
                     target.data.termId,

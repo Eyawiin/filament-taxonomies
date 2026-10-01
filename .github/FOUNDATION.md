@@ -2,7 +2,7 @@
 
 Decision date: 2026-10-01. Reviewed source baseline: `5.x`, `2ec2cea`.
 
-This contributor document records F0's decisions and executable reproductions. **Target contracts are requirements for the following milestones, not guarantees already implemented.** The behavior and test status below distinguish the two. The local, gitignored `ROADMAP.md` holds the complete implementation sequence.
+This contributor document records F0's decisions and executable reproductions. **F1 implements the management permission and query visibility contract. The remaining target contracts are requirements for following milestones, not guarantees already implemented.** The behavior and test status below distinguish the two. The local, gitignored `ROADMAP.md` holds the complete implementation sequence.
 
 ## F0 implementation plan
 
@@ -78,11 +78,11 @@ Existing position writes use bulk updates and do not emit one Eloquent save even
 
 The initial product scope is **global taxonomies**, without an advertised tenant-ownership schema. Honor application visibility scopes, record permissions, and taxonomy membership at every supported query/write boundary. Being in a tenant-enabled panel alone must not be advertised as tested tenant isolation.
 
-Target permission mapping:
+Permission mapping (implemented in F1):
 
 | Operation | Required policy boundary |
 | --- | --- |
-| Resource/page access | `Taxonomy::viewAny`; record pages also require `Taxonomy::view` |
+| Resource listing / Manage Terms access | `Taxonomy::viewAny`; Manage Terms also requires `Taxonomy::view` on its record |
 | Create taxonomy, edit taxonomy, delete taxonomy | Existing standard Filament taxonomy CRUD abilities |
 | Create term | `TaxonomyTerm::create`; pass taxonomy context for consumers that require it |
 | Edit or reparent a term | `TaxonomyTerm::update` on the source |
@@ -91,9 +91,9 @@ Target permission mapping:
 
 Each term operation additionally requires access to its owning taxonomy. Taxonomy delete permission never substitutes for term delete permission. Cross-taxonomy moves stay forbidden regardless of policy approval.
 
-Use the active panel's guard and Laravel/Filament authorization mechanisms. Retain Filament's policy-free behavior for existing consumers: absent policy/method permits operations in normal mode, subject to Gate before callbacks; strict mode must report missing policy/methods. Explicit denials must apply on execution and direct Livewire requests, not just control visibility. Recheck permission on submission even if a modal was mounted while the operation was allowed. Consumers wanting a read-only installation should define all the used abilities. F1 must test missing policies/methods, strict mode, and global Gate callbacks before claiming equivalent behavior.
+Use the active panel's guard and Laravel/Filament authorization mechanisms. Retain Filament's policy-free behavior for existing consumers: absent policy/method permits operations in normal mode, subject to Gate before callbacks; strict mode must report missing policy/methods. Explicit denials must apply on execution and direct Livewire requests, not just control visibility. Recheck permission on submission even if a modal was mounted while the operation was allowed. Consumers wanting a read-only installation should define all the used abilities. F1 tests missing policies/methods, strict mode, Gate before denials/Response metadata, additional create context, and use of the active panel guard.
 
-Navigation, page resolution, options, and mutation lookup must honor the same visible-taxonomy boundary. Tests of term membership already exist; they are not evidence of policy enforcement. Filament's resource access checks are present, but the pending tests demonstrate missing custom-operation enforcement under a registered denying term policy. [Filament's authorization guidance](https://filamentphp.com/docs/5.x/resources/overview#authorization) and installed `get_authorization_response()` inform this contract.
+Navigation, page resolution, options, and mutation lookup must honor the same visible-taxonomy boundary. Tests of term membership already exist; they are not evidence of policy enforcement. F1 adds custom-operation checks at mounting/execution and direct movement endpoints. Navigation uses the resource query and record-view permission; Manage Terms and Edit Taxonomy restore their resource query scope after Livewire hydration. Parent options and mutation lookups use scoped same-taxonomy relationships. Taxonomy CRUD retains Filament's standard ability mapping; a view policy controls Manage Terms, while query scopes control taxonomy list membership. [Filament's authorization guidance](https://filamentphp.com/docs/5.x/resources/overview#authorization) and installed `get_authorization_response()` inform this contract.
 
 ## Validation, keyboard, and installation decisions
 
@@ -118,13 +118,16 @@ composer test:pending
 npm run test:js:pending
 
 # Focus on the next milestone.
-vendor/bin/pest --no-coverage tests/Pending/TermAuthorizationTest.php
+vendor/bin/pest --no-coverage tests/Pending/HierarchyOrderingTest.php
 ```
 
-| Owner | Specification | Cases | Observed failure |
+| Owner | Specification | Cases | Status / reproduction |
 | --- | --- | --- | --- |
-| F1 | `tests/Pending/TermAuthorizationTest.php` | 8 | Policy-denied create/edit/delete, direct move/drop, and action submission after permission revocation still mutate rows |
-| F1 | `tests/Pending/TaxonomyVisibilityTest.php` | 2 | Record-view denial is ignored by navigation and the Manage Terms page |
+| F1 — implemented | `tests/Feature/Resources/Taxonomies/TermAuthorizationTest.php` | 17 | Denials, revocation, allowed operations, and matching controls pass |
+| F1 — implemented | `tests/Feature/Resources/Taxonomies/TaxonomyVisibilityTest.php` | 10 | Navigation, page/table/field denial, permission changes, and current-user navigation pass |
+| F1 — implemented | `tests/Feature/Resources/Taxonomies/TaxonomyQueryVisibilityTest.php` | 19 | Model/resource scopes, hidden/foreign IDs, parent input, and hydrated manage/edit pages pass |
+| F1 — implemented | `tests/Feature/Resources/Taxonomies/TaxonomyTermPolicyCompatibilityTest.php` | 17 | Filament defaults, strict mode, Gate callbacks, active guard, and create context pass |
+| F1 — implemented | `tests-js/term-movement-permissions.test.js` | 3 | Drag capability changes, read-only destinations, and revocation before submission pass |
 | F2 | `tests/Pending/HierarchyOrderingTest.php` | 4 | Service/edit source positions remain `[0,2]`; root/nested promotion ordering or positions fail |
 | F3 | `tests/Pending/SlugValidationTest.php` | 4 | Create/edit taxonomy and term throw database uniqueness exceptions instead of field errors |
 | F4 | `tests-js/pending/parent-tree.test.js` | 1 | Home/Enter selects the first term instead of clearing |
@@ -132,7 +135,7 @@ vendor/bin/pest --no-coverage tests/Pending/TermAuthorizationTest.php
 
 When fixing a milestone, move its PHP tests into the relevant `tests/Feature/Services`, `Resources`, or installation group; move JS tests into `tests-js/*.test.js`. Keep or expand the assertions, run them in required CI, and update this table. The pending directory is temporary executable planning, not a place to leave unresolved requirements after a milestone is called complete. Avoid using `vendor/bin/pest tests` as a passing-gate command: that explicit directory includes pending tests.
 
-## F0 verification and remaining work
+## F0 verification (historical baseline)
 
 On the environment above:
 
@@ -143,4 +146,68 @@ On the environment above:
 
 Review round: action tests now cover permission revocation after mounting; deletion tests include multiple surviving roots with names that differ from position order; parent changes have a metadata/subtree preservation test. The read-only taxonomy fixture explicitly denies create/update/delete. Full PHP formatting, JS formatting, Composer validation, and whitespace checks passed.
 
-No concurrency run, browser accessibility run, external CI check, or clean-distribution install is claimed. Those are concrete F2/F4/F5 gates. Next: enforce F1's custom-operation permissions and visibility; use these denial reproductions as the first required regressions.
+No concurrency run, browser accessibility run, external CI check, or clean-distribution install is claimed. Those are concrete F2/F4/F5 gates. The F1 completion evidence below supersedes the permission/visibility reproduction status.
+
+## F1 implementation and completion evidence — 2026-10-01
+
+Implementation plan after reviewing F0 and the roadmap:
+
+1. Integrate native Filament authorization responses for term create/update/delete;
+   forward the owning taxonomy to policy-backed creation.
+2. Authorize owning-taxonomy access and each custom mutation, including direct
+   move/drop calls. Resolve terms/parents through scoped taxonomy relationships.
+3. Apply resource queries and record permissions to navigation/Manage Terms links,
+   parent options, and record resolution. Restore query scopes after hydration.
+4. Reflect term updates in movement controls, promote the ten F0 regressions,
+   add compatibility/scope/forged-ID tests, and rebuild distributed assets.
+
+All custom term action callbacks explicitly authorize before writing. Native
+Filament action authorization handles hidden controls and mounting/submission
+checks; execution callbacks also enforce the boundary. Missing/scoped-out records
+use framework missing-record/404 behavior; explicit policy denials use authorization
+responses or the framework's forbidden response. UI hiding is not the write guard.
+
+The small authorization adapter is reusable by future integration code, but does
+not define an assignment permission API. The service and existing public mutation
+signatures remain unchanged. Optional resource arguments on form/field/table
+configuration forward an extended resource's scope rather than hardcoding the base
+resource. There is no cross-user query cache or new tenant schema.
+
+Review found and reproduced the native taxonomy edit page's scope bypass after
+hydration; its record is now resolved through the resource query before Filament's
+standard update check. This also preserves dirty form state in the normal allowed
+edit path.
+
+Verification on the local environment recorded above:
+
+- Required PHP: **175 passed / 679 assertions**, including 63 F1 cases.
+- Required JavaScript: **14 passed**, including three drag-adapter cases.
+- PHPStan level 4: no errors; full Pint: 70 files pass.
+- Changed JavaScript passes Prettier; Composer strict validation and whitespace checks pass.
+- JavaScript distribution build, workbench asset publishing, and theme build pass.
+- Remaining explicit pending PHP: **10 failures** (F2: four, F3: four, F5: two).
+  The separate F4 keyboard specification remains pending.
+
+The drag tests execute our real adapter with stubbed engine callbacks and DOM
+surfaces. They do not establish full browser or assistive-technology behavior.
+The external dependency/OS matrix, production locking, and tenant isolation have
+not been reverified here. Next milestone: F2's unified atomic hierarchy writes.
+
+### F1 review round
+
+Reviewed the complete runtime diff, source and destination policy boundaries,
+resource/global query scopes, action execution, Livewire hydration, recursive
+controls, generated JavaScript, documentation, and every promoted/new test.
+No runtime correction was needed. Added three regressions proving source-only
+movement permissions with a visible read-only destination and denied term
+deletion despite allowed taxonomy deletion.
+
+Rechecked the native authorization helper against Filament 5.0's source; the
+integration exists in the declared minimum Filament version. This source check
+does not replace running the full dependency/OS CI matrix.
+
+The full required suite passes with 175 PHP tests / 679 assertions and 14 JS
+tests. PHPStan, full Pint, changed JS Prettier, strict Composer validation,
+whitespace checks, and a fresh distribution build pass. Known F2–F5 pending
+requirements remain separate. The review is complete and the F1 changes are
+approved for commit/push by the user.

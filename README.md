@@ -70,6 +70,40 @@ public function panel(Panel $panel): Panel
 
 Open **Taxonomies** in the panel navigation to create a taxonomy, then choose **Manage Terms** to organize its terms in a tree. Drag a term by its handle and drop it near the top of another row to place it before, in the middle to make it a child, or near the bottom to place it after. You can also use the row's **Move up** and **Move down** buttons to reorder siblings without dragging. Use **Edit** to change a term's parent.
 
+## Authorization and visibility
+
+Taxonomy CRUD keeps Filament's standard policy abilities. Listing requires
+`viewAny` on `Taxonomy`; managing a taxonomy's terms also requires `view` on that
+taxonomy. Term operations use a separate `TaxonomyTerm` policy:
+
+| Operation | Term policy method |
+| --- | --- |
+| Create | `create($user, $taxonomy)` |
+| Edit, change parent, move, or reorder | `update($user, $term)` |
+| Delete | `delete($user, $term)` |
+
+Register the policies through Laravel's policy discovery or `Gate::policy()`.
+The create policy receives the owning `Taxonomy` as additional context; existing
+one-argument create policies continue to work. Term deletion permission is
+independent of permission to delete a taxonomy.
+
+Checks use the active panel guard and run when operations execute, including
+direct Livewire movement requests and submissions after a modal was opened.
+Denied actions are hidden; movement arrows remain visible and disabled.
+
+As in Filament, missing policies or methods allow access in normal mode, subject
+to Gate before callbacks. Define every listed ability for a read-only policy.
+A panel using `strictAuthorization()` reports missing policies or methods.
+
+Navigation, record pages, parent options, and mutation lookups honor resource
+queries and model global scopes. Scope changes are checked again on subsequent
+Livewire requests. A `view` policy controls access to Manage Terms; use query
+scopes to exclude records from the taxonomy list itself. Taxonomies are global
+by default, without an ownership or tenant schema.
+
+The tree service remains independent of authentication. Consumers calling it
+directly must authorize their own integration before invoking mutations.
+
 ## Testing
 
 ```bash

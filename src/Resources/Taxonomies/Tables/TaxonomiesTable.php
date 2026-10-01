@@ -12,7 +12,10 @@ use Filament\Tables\Table;
 
 class TaxonomiesTable
 {
-    public static function configure(Table $table): Table
+    /**
+     * @param  class-string<TaxonomyResource>  $resource
+     */
+    public static function configure(Table $table, string $resource = TaxonomyResource::class): Table
     {
         return $table
             ->columns([
@@ -32,8 +35,10 @@ class TaxonomiesTable
                 Action::make('manageTerms')
                     ->label('Manage Terms')
                     ->icon('heroicon-o-list-bullet')
+                    ->authorize(fn (Taxonomy $record): bool => $resource::canAccess()
+                        && $resource::canView($record))
                     ->url(
-                        fn (Taxonomy $record): string => TaxonomyResource::getUrl(
+                        fn (Taxonomy $record): string => $resource::getUrl(
                             'manageTerms',
                             ['record' => $record],
                         ),
