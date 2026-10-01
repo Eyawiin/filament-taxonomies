@@ -12,7 +12,7 @@ beforeEach(function (): void {
     Filament::setCurrentPanel('admin');
 });
 
-it('F2 appends a reparented subtree and normalizes both sibling groups', function (string $entryPoint): void {
+it('appends a reparented subtree and normalizes both sibling groups', function (string $entryPoint): void {
     [
         'taxonomy' => $taxonomy, 'sourceParent' => $sourceParent,
         'destinationParent' => $destinationParent, 'first' => $first,
@@ -41,7 +41,7 @@ it('F2 appends a reparented subtree and normalizes both sibling groups', functio
         ->and($source->pluck('position')->all())->toBe([0, 1]);
 })->with(['service', 'edit action']);
 
-it('F2 appends promoted children after surviving roots in their previous order', function (bool $nested): void {
+it('appends promoted children after surviving roots in their previous order', function (bool $nested): void {
     [
         'taxonomy' => $taxonomy, 'sourceParent' => $sourceParent,
         'destinationParent' => $destinationParent, 'first' => $first,

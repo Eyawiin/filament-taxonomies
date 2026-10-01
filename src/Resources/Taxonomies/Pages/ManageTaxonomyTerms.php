@@ -2,6 +2,7 @@
 
 namespace Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages;
 
+use Closure;
 use Eyawiin\FilamentTaxonomies\Authorization\TaxonomyTermAuthorization;
 use Eyawiin\FilamentTaxonomies\Enums\TaxonomyTermDropPosition;
 use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyDropException;
@@ -24,6 +25,8 @@ class ManageTaxonomyTerms extends Page
     use InteractsWithRecord;
 
     protected static string $resource = TaxonomyResource::class;
+
+    private bool $isMutatingTerms = false;
 
     protected string $view = 'filament-taxonomies::resources.taxonomies.pages.manage-taxonomy-terms';
 
@@ -78,37 +81,14 @@ class ManageTaxonomyTerms extends Page
                     ),
                 )
                 ->action(function (array $data): void {
-                    $taxonomy = $this->getRecord();
-                    TaxonomyTermAuthorization::create($taxonomy)->authorize();
-                    $taxonomyId = (int) $taxonomy->getKey();
-
-                    $parentId = empty($data['parent_id'])
-                        ? null
-                        : (int) $data['parent_id'];
-
-                    if ($parentId !== null) {
-                        $this->resolveTerm(['term' => $parentId]);
-                    }
-
-                    $position = app(TaxonomyTreeService::class)->getNextPosition(
-                        $taxonomyId,
-                        $parentId,
-                    );
-
-                    TaxonomyTerm::create([
-                        'taxonomy_id' => $taxonomyId,
-                        'parent_id' => $parentId,
-                        'name' => $data['name'],
-                        'slug' => $data['slug'],
-                        'position' => $position,
-                    ]);
-
-                    if ($parentId !== null) {
-                        $this->dispatch(
-                            'taxonomy-tree-expand-term',
-                            termId: $parentId,
-                        );
-                    }
+                    $this->mutateTerms(function (TaxonomyTreeService $service) use ($data): void {
+                        TaxonomyTermAuthorization::create($this->getRecord())->authorize();
+                        $parent = empty($data['parent_id']) ? null : $this->resolveTerm(['term' => (int) $data['parent_id']]);
+                        $service->createTerm($this->getRecord(), (string) $data['name'], (string) $data['slug'], $parent);
+                        if ($parent !== null) {
+                            $this->expandAfterCommit((int) $parent->getKey());
+                        }
+                    });
                 }),
         ];
     }
@@ -146,28 +126,25 @@ class ManageTaxonomyTerms extends Page
                 );
             })
             ->action(function (array $data, array $arguments): void {
-                $term = $this->resolveTerm($arguments);
-
-                TaxonomyTermAuthorization::update($term)->authorize();
-
-                $parent = null;
-
-                if (! empty($data['parent_id'])) {
-                    $parent = $this->resolveTerm(['term' => (int) $data['parent_id']]);
-                }
-
-                $term->name = (string) $data['name'];
-                $term->slug = (string) $data['slug'];
-
-                app(TaxonomyTreeService::class)
-                    ->setParent($term, $parent);
+                $this->mutateTerms(function (TaxonomyTreeService $service) use ($data, $arguments): void {
+                    $term = $this->resolveTerm($arguments);
+                    TaxonomyTermAuthorization::update($term)->authorize();
+                    $parent = empty($data['parent_id']) ? null : $this->resolveTerm(['term' => (int) $data['parent_id']]);
+                    $term->name = (string) $data['name'];
+                    $term->slug = (string) $data['slug'];
+                    $service->setParent($term, $parent);
+                });
             });
     }
 
     private function resolveTerm(array $arguments): TaxonomyTerm
     {
-        return $this->getRecord()->terms()
-            ->findOrFail((int) ($arguments['term'] ?? 0));
+        $query = $this->getRecord()->terms();
+        if ($this->isMutatingTerms) {
+            $query->lockForUpdate();
+        }
+
+        return $query->findOrFail((int) ($arguments['term'] ?? 0));
     }
 
     public function deleteTermAction(): Action
@@ -183,11 +160,16 @@ class ManageTaxonomyTerms extends Page
             ->modalHeading('Delete term')
             ->modalDescription('Are you sure you want to delete this term? Its direct children will become root terms.')
             ->modalSubmitActionLabel('Delete')
-            ->action(function (array $arguments): void {
-                $term = $this->resolveTerm($arguments);
+            ->action(function (array $arguments, Action $action): void {
+                $deleted = $this->mutateTerms(function (TaxonomyTreeService $service) use ($arguments): bool {
+                    $term = $this->resolveTerm($arguments);
+                    TaxonomyTermAuthorization::delete($term)->authorize();
 
-                TaxonomyTermAuthorization::delete($term)->authorize();
-                $term->deleteOrFail();
+                    return $service->deleteTerm($term);
+                });
+                if (! $deleted) {
+                    $action->failure();
+                }
             });
     }
 
@@ -206,24 +188,21 @@ class ManageTaxonomyTerms extends Page
             ]);
         }
 
-        $term = $this->resolveTerm(['term' => $termId]);
-        TaxonomyTermAuthorization::update($term)->authorize();
-        $target = $this->resolveTerm(['term' => $targetId]);
+        $this->mutateTerms(function (TaxonomyTreeService $service) use ($termId, $targetId, $position): void {
+            $term = $this->resolveTerm(['term' => $termId]);
+            TaxonomyTermAuthorization::update($term)->authorize();
+            $target = $this->resolveTerm(['term' => $targetId]);
 
-        try {
-            app(TaxonomyTreeService::class)->moveRelativeTo($term, $target, $position);
-        } catch (InvalidTaxonomyDropException | InvalidTaxonomyParentException | InvalidTaxonomyOrderException $exception) {
-            throw ValidationException::withMessages([
-                'drop' => $exception->getMessage(),
-            ]);
-        }
+            try {
+                $service->moveRelativeTo($term, $target, $position);
+            } catch (InvalidTaxonomyDropException | InvalidTaxonomyParentException | InvalidTaxonomyOrderException $exception) {
+                throw ValidationException::withMessages(['drop' => $exception->getMessage()]);
+            }
 
-        if ($position === TaxonomyTermDropPosition::Inside) {
-            $this->dispatch(
-                'taxonomy-tree-expand-term',
-                termId: (int) $target->getKey(),
-            );
-        }
+            if ($position === TaxonomyTermDropPosition::Inside) {
+                $this->expandAfterCommit((int) $target->getKey());
+            }
+        });
     }
 
     public function moveTerm(
@@ -231,40 +210,42 @@ class ManageTaxonomyTerms extends Page
         int $position,
         ?int $parentId = null,
     ): void {
-        $term = $this->resolveTerm([
-            'term' => $termId,
-        ]);
+        $this->mutateTerms(function (TaxonomyTreeService $service) use ($termId, $position, $parentId): void {
+            $term = $this->resolveTerm(['term' => $termId]);
+            TaxonomyTermAuthorization::update($term)->authorize();
+            $parent = $parentId === null ? null : $this->resolveTerm(['term' => $parentId]);
+            $oldParentId = $term->parent_id === null ? null : (int) $term->parent_id;
+            $service->moveTerm($term, $parent, $position);
+            if ($parentId !== null && $oldParentId !== $parentId) {
+                $this->expandAfterCommit($parentId);
+            }
+        });
+    }
 
-        TaxonomyTermAuthorization::update($term)->authorize();
+    private function mutateTerms(Closure $operation): mixed
+    {
+        $service = app(TaxonomyTreeService::class);
 
-        $parent = $parentId === null
-            ? null
-            : $this->resolveTerm([
-                'term' => $parentId,
-            ]);
+        return $service->withTaxonomyLock($this->getRecord(), function (Taxonomy $taxonomy) use ($service, $operation): mixed {
+            // Permission and resource scope may have changed while waiting for the lock.
+            $resource = static::getResource();
+            $this->record = $resource::getEloquentQuery()->lockForUpdate()->findOrFail($taxonomy->getKey());
+            $this->getRecord();
 
-        $currentParentId = $term->parent_id === null
-            ? null
-            : (int) $term->parent_id;
+            $this->isMutatingTerms = true;
 
-        $newParentId = $parent === null
-            ? null
-            : (int) $parent->getKey();
+            try {
+                return $operation($service);
+            } finally {
+                $this->isMutatingTerms = false;
+            }
+        });
+    }
 
-        app(TaxonomyTreeService::class)->moveTerm(
-            $term,
-            $parent,
-            $position,
+    private function expandAfterCommit(int $termId): void
+    {
+        $this->getRecord()->getConnection()->afterCommit(
+            fn () => $this->dispatch('taxonomy-tree-expand-term', termId: $termId),
         );
-
-        if (
-            $newParentId !== null
-            && $currentParentId !== $newParentId
-        ) {
-            $this->dispatch(
-                'taxonomy-tree-expand-term',
-                termId: $newParentId,
-            );
-        }
     }
 }

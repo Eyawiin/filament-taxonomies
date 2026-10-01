@@ -2,7 +2,7 @@
 
 Decision date: 2026-10-01. Reviewed source baseline: `5.x`, `2ec2cea`.
 
-This contributor document records F0's decisions and executable reproductions. **F1 implements the management permission and query visibility contract. The remaining target contracts are requirements for following milestones, not guarantees already implemented.** The behavior and test status below distinguish the two. The local, gitignored `ROADMAP.md` holds the complete implementation sequence.
+This contributor document records F0's decisions and executable reproductions. **F1 implements the management permission and query visibility contract. F2 implements coordinated hierarchy writes, verified on MySQL 8.4/InnoDB. Validation, field accessibility, and distribution requirements remain for later milestones.** The behavior and test status below distinguish the two. The local, gitignored `ROADMAP.md` holds the complete implementation sequence.
 
 ## F0 implementation plan
 
@@ -28,23 +28,23 @@ Laravel 11 reached upstream security end of life on 2026-03-12. Retain its exist
 
 Current local evidence: Ubuntu under WSL, PHP 8.3.33, Filament 5.8.4, Laravel 13.33.0, Testbench 11.3.0, Pest 4.7.8, SQLite in memory with foreign keys enabled, Node 24.21.0. Other local PHP/framework/OS combinations were not run for F0.
 
-**Database decision:** SQLite remains the fast functional test backend. The first production concurrency target is MySQL 8.4 with InnoDB on a single default connection. F2 must prove transaction/locking behavior with independent connections; F5 adds that CI lane. This selection is an implementation target, not a newly verified support claim. PostgreSQL, alternate storage engines, multiple connections, and arbitrary raw writers have no concurrency guarantee from this review.
+**Database decision:** SQLite remains the fast functional test backend. The first production concurrency target is MySQL 8.4 with InnoDB on a single default connection. F2 verifies transaction/locking behavior with independent processes on MySQL 8.4.11; F5 adds that CI lane. Verification is limited to the recorded local environment and scenarios. PostgreSQL, alternate storage engines, multiple connections, and arbitrary raw writers have no concurrency guarantee from this review.
 
 ## Hierarchy contracts
 
 ### Managed writes
 
-The target invariant boundary is the supported tree service and package management actions. Application authorization belongs at the UI/integration boundary; the domain service enforces hierarchy and persistence rules without assuming an authenticated HTTP request.
+The invariant boundary is the supported tree service and package management actions. Application authorization belongs at the UI/integration boundary; the domain service enforces hierarchy and persistence rules without assuming an authenticated HTTP request.
 
 Raw SQL, query-builder writes, relationship `create()`, model `save()/delete()`, and third-party imports remain possible. Their database foreign keys/unique constraints still apply, but they do not receive automatic cycle checking, position normalization, or coordinated locking. Do not add global model observers that silently rewrite imports. Importers should use the managed service or explicitly validate their results.
 
-Today, the page directly creates/deletes terms, `setParent()` saves independently, and movement uses another transaction path. F2 must unify those paths before the managed-write guarantees can be advertised.
+All package hierarchy writes now use the service: creation, edit/reparenting, explicit/relative movement, sibling reordering, term deletion, and taxonomy deletion. Each operation acquires the owning taxonomy row lock before current structural reads and writes. The page/table rechecks scoped records and policy responses inside that lock boundary.
 
 ### Parents, ordering, and mutation results
 
 - Taxonomy/term keys remain positive integers. At the form boundary, null/empty-string parent state means root; valid numeric strings normalize to positive IDs. Zero, negatives, fractions, and malformed IDs must be rejected, not treated as root. Services retain their typed model/ID arguments.
 - A parent belongs to the same taxonomy. A term cannot have itself or a descendant as its parent. Reparenting preserves the entire descendant subtree.
-- A sibling group is identified by `(taxonomy_id, parent_id)`; `null` means roots. After a managed mutation, affected groups have contiguous integer positions starting at zero.
+- A sibling group is identified by `(taxonomy_id, parent_id)`; `null` means roots. After a structural managed mutation, affected groups have contiguous integer positions starting at zero. Metadata-only edits preserve existing positions, including legacy gaps.
 - Preserve existing order in each unaffected group. Read ties deterministically by `position`, then `name`, then `id`; ties are compatibility handling for existing data, not the managed final state.
 - Creating appends to the chosen sibling group. Changing parent through edit/`setParent()` appends to the destination and normalizes the source.
 - Keeping the same parent preserves the term's position while saving pending name/slug edits.
@@ -62,17 +62,17 @@ Preserve immediate-child promotion to root, including deletion of a nested term.
 3. Normalize roots and, for nested deletion, the deleted term's former sibling group.
 4. Preserve deeper descendants under their existing parents.
 
-Example: roots `[A, B, C]`, with children `[X, Y]` under B, become roots `[A, C, X, Y]`, positions `[0, 1, 2, 3]`. This deliberately avoids interleaving positions copied from a different group. Database `nullOnDelete()` currently promotes children but does not implement this ordering.
+Example: roots `[A, B, C]`, with children `[X, Y]` under B, become roots `[A, C, X, Y]`, positions `[0, 1, 2, 3]`. This deliberately avoids interleaving positions copied from a different group. Database `nullOnDelete()` promotes children; the managed service implements this ordering within the same transaction.
 
-Deleting a taxonomy continues to cascade its terms and preserve other taxonomies. Its managed path must coordinate with F2's taxonomy locking discipline.
+Deleting a taxonomy continues to cascade its terms and preserve other taxonomies. Its managed service and native table action acquire the same taxonomy lock.
 
 ### API compatibility and events
 
 Retain existing signatures, return types, and domain exception classes for `canSetParent()`, `setParent()`, `moveTerm()`, `moveRelativeTo()`, `reorderSiblings()`, `getTree()`, `getDescendantIds()`, and `getNextPosition()`. No deprecation is needed for F0.
 
-`setParent()` must continue saving a caller's pending name/slug edits; replacing it with a freshly loaded model must not discard those changes. `getNextPosition()` stays a read helper, not an atomic reservation or concurrent-create API. Future create/delete entry points are additive and must be used by the page.
+`setParent()` must continue saving a caller's pending name/slug edits; replacing it with a freshly loaded model must not discard those changes. `getNextPosition()` stays a read helper, not an atomic reservation or concurrent-create API. Additive `createTerm()`, `deleteTerm()`, and `deleteTaxonomy()` entry points are used by the page/table.
 
-Existing position writes use bulk updates and do not emit one Eloquent save event per sibling. Preserve/document that behavior; do not imply otherwise. Emit UI success/expansion feedback only after successful writes. F2 must decide stale-model handling and retries inside the coordinated transaction.
+Existing position writes use bulk updates and do not emit one Eloquent save event per sibling. Preserve/document that behavior; do not imply otherwise. Tree expansion events are registered after successful writes and dispatched after the outer database transaction commits. Explicit source create/save/delete uses Eloquent events; sibling maintenance and FK promotion/cascade do not emit individual sibling/child saves or deletes. Consumer observers must defer external effects until commit.
 
 ## Management permissions and visibility
 
@@ -117,8 +117,11 @@ npm run test:js
 composer test:pending
 npm run test:js:pending
 
-# Focus on the next milestone.
-vendor/bin/pest --no-coverage tests/Pending/HierarchyOrderingTest.php
+# Next milestone: form validation.
+vendor/bin/pest --no-coverage tests/Pending/SlugValidationTest.php
+
+# Explicit MySQL gate; see tests-concurrency/README.md for server setup.
+composer test:concurrency
 ```
 
 | Owner | Specification | Cases | Status / reproduction |
@@ -128,7 +131,7 @@ vendor/bin/pest --no-coverage tests/Pending/HierarchyOrderingTest.php
 | F1 — implemented | `tests/Feature/Resources/Taxonomies/TaxonomyQueryVisibilityTest.php` | 19 | Model/resource scopes, hidden/foreign IDs, parent input, and hydrated manage/edit pages pass |
 | F1 — implemented | `tests/Feature/Resources/Taxonomies/TaxonomyTermPolicyCompatibilityTest.php` | 17 | Filament defaults, strict mode, Gate callbacks, active guard, and create context pass |
 | F1 — implemented | `tests-js/term-movement-permissions.test.js` | 3 | Drag capability changes, read-only destinations, and revocation before submission pass |
-| F2 | `tests/Pending/HierarchyOrderingTest.php` | 4 | Service/edit source positions remain `[0,2]`; root/nested promotion ordering or positions fail |
+| F2 — implemented | `tests/Feature/Resources/Taxonomies/HierarchyOrderingTest.php` | 4 | Service/edit source normalization and root/nested promotion order pass |
 | F3 | `tests/Pending/SlugValidationTest.php` | 4 | Create/edit taxonomy and term throw database uniqueness exceptions instead of field errors |
 | F4 | `tests-js/pending/parent-tree.test.js` | 1 | Home/Enter selects the first term instead of clearing |
 | F5 | `tests/Pending/ConfigPublishingTest.php` | 2 | Publish registry is empty; config key is absent |
@@ -211,3 +214,115 @@ tests. PHPStan, full Pint, changed JS Prettier, strict Composer validation,
 whitespace checks, and a fresh distribution build pass. Known F2–F5 pending
 requirements remain separate. The review is complete and the F1 changes are
 approved for commit/push by the user.
+
+## F2 implementation and verification — 2026-10-01
+
+The implementation plan was reviewed against F0/F1, installed framework code,
+all managed write paths, and the roadmap before implementation:
+
+1. Lock the owning taxonomy on the default connection before current structural
+   reads, identity/membership checks, cycle checks, and destination decisions.
+2. Reuse one ordering implementation for create, edit/reparent, explicit/relative
+   moves, reorder, promotion, and cascade; preserve existing API signatures.
+3. Recheck integration visibility and authorization while holding that lock.
+4. Promote F0 ordering regressions and add rollback/stale/scope/observer tests.
+5. Prove contention using independent processes on MySQL, then run the full gates.
+
+### Persistence, visibility, and compatibility decisions
+
+- Every operation runs in a transaction with **one attempt**. Automatic retries
+  are deliberately absent: replaying consumer callbacks/observers could duplicate
+  external effects. Callers may retry an entire operation with fresh inputs after
+  handling a deadlock/timeout; exceptions are not swallowed.
+- Lock acquisition begins with exactly one owning taxonomy. Subsequent locking
+  reads use current database state even inside an existing repeatable-read
+  transaction. Nested page/service calls retain the same outer lock/commit.
+  Consumer transactions spanning multiple taxonomies must coordinate their own
+  ascending taxonomy lock order; no multi-taxonomy mutation API is promised.
+- Taxonomy and term models must use the **single default connection**. Unsupported
+  connections/changed owning-model identities are rejected before mutation. Parent,
+  target, and source existence/membership are checked again after waiting.
+- Scoped input lookups and resource/policy checks remain authoritative. Internal
+  structural reads and bulk maintenance bypass term global scopes, restricted to
+  the locked taxonomy, so hidden ancestors cannot conceal a cycle and hidden
+  siblings cannot acquire colliding positions. Hidden labels are never returned
+  as UI options. Full explicit reordering rejects groups with hidden siblings.
+- Passed parent/position attributes are not trusted as current state. Pending
+  dirty name/slug edits are intentional input and still persist. Returned source
+  models retain caller identity and receive fresh attributes after service success.
+  An eventual rollback of a consumer's outer transaction still requires refreshing
+  its in-memory models, as with ordinary Eloquent writes.
+- Sibling ties use the database's position/name/id ordering and collation.
+  Metadata-only unchanged-parent edits preserve stored positions; structural
+  operations normalize affected groups. An inside drop on an existing parent
+  appends the source.
+- Relevant cyclic/missing/foreign ancestor chains cause domain failure, without
+  repair. Deletion rejects raw foreign children that would otherwise be promoted
+  across taxonomies. Unrelated malformed imported components are not repaired or
+  claimed valid. Whole-taxonomy deletion may remove malformed own terms.
+- Save cancellation throws and rolls back; delete cancellation returns false
+  without position maintenance. Post-delete observer failure rolls back cascades.
+  There is no new schema constraint or observer rewriting raw imports.
+
+### Verification
+
+Required PHP regressions cover F0 ordering, current/stale inputs, same-parent and
+inside behavior, cross-connection rejection, hidden ancestor/sibling integrity,
+foreign/malformed structure, mid-maintenance rollback, observer cancellation,
+taxonomy cascade rollback, authorization after entering the lock transaction,
+and expansion only after outer commit (discarded on rollback).
+
+The explicit **composer test:concurrency** gate runs actual package migrations in
+a uniquely named disposable database. Independent PHP processes preload stale
+models; stdin/JSON acknowledgements coordinate execution. Six conflicting cases
+observe actual InnoDB lock waits before release. An additional case demonstrates
+progress on a different taxonomy while the first taxonomy lock is held.
+
+MySQL **8.4.11 / InnoDB / REPEATABLE READ**: seven scenarios pass — competing
+creates, creates under an old snapshot, fresh no-op return under an old snapshot,
+collectively cyclic reparent attempts, deleted target, taxonomy cascade versus
+create, and independent taxonomy progress. See tests-concurrency/README.md.
+
+SQLite remains the functional test backend. The MySQL lane is explicit and not
+yet automated in CI (F5). PostgreSQL, alternate engines/connections, arbitrary
+writers bypassing this lock discipline, and all external dependency/OS matrix
+combinations remain unverified. This is F2 evidence, not foundation acceptance.
+
+Implementation-round local gates: **210 required PHP tests / 813 assertions**, **14 JS tests**,
+**seven MySQL concurrency scenarios**; PHPStan level 4, full Pint (78 files),
+strict Composer validation, and whitespace checks pass. Four F0 ordering cases
+were promoted; 31 additional required F2 cases were added. The remaining explicit
+pending PHP failures are six (F3: four; F5: two). F4's JS keyboard case remains
+pending. No browser/build changes were required for this PHP-only milestone.
+The following review round supersedes the implementation-round status.
+
+### F2 review round
+
+Reviewed the full service/page/table diff, current-read and transaction boundaries,
+F0 compatibility, F1 scope/policy behavior, all added/promoted tests, the MySQL
+process harness, and contract documentation. Three runtime findings were
+reproduced with failing behavioral tests and fixed immediately:
+
+- Keyed reorder input could persist array keys as positions, including nonnumeric
+  keys. Reordering now derives consecutive positions from the input values.
+- A visibility scope could duplicate joined rows and make the visible row count
+  match a group containing hidden terms. Reordering now compares the complete
+  unique visible ID set, using a qualified key column. Both hidden and fully
+  visible duplicated-row scenarios are covered.
+- The managed native taxonomy delete action left its original record marked as
+  existing. It now updates that record's existence state after successful managed
+  deletion, preserving native state for consumer after hooks.
+
+The concurrency harness now checks worker exit status against its reported result
+and cleans up an already-started first worker if the second worker cannot start.
+Seven coordinated MySQL scenarios pass with these checks enabled.
+
+Final review gates: **215 required PHP tests / 825 assertions**, **14 JavaScript
+tests**, and **seven MySQL 8.4.11/InnoDB scenarios** pass. PHPStan level 4,
+full Pint (78 files), strict Composer validation, and whitespace checks pass.
+Five review regressions were added; all 36 new F2 required cases and four
+promoted F0 cases pass. The remaining F3/F4/F5 specifications and the F5
+automated database lane retain their documented scope.
+
+No unresolved F2 finding remains. The user authorized commit/push once the review
+and corrections passed; that condition is satisfied.
