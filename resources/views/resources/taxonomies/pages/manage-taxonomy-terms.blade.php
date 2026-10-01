@@ -58,7 +58,7 @@
 
                 <p class="mb-3 text-sm text-danger-600" role="alert" x-show="error" x-text="error" x-cloak></p>
 
-                @foreach (['placement', 'drop'] as $errorKey)
+                @foreach (['placement', 'drop', 'move'] as $errorKey)
                     @error($errorKey)
                         <p class="mb-3 text-sm text-danger-600" role="alert">{{ $message }}</p>
                     @enderror

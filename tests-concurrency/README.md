@@ -37,3 +37,11 @@ transport/observation deadline; elapsed time is never a passing assertion.
 Default Pest tests cover functional ordering, hidden structural ancestors,
 stale inputs, cancelled observers, rollback after partial updates/cascades, fresh
 authorization, and commit-dependent expansion events. This gate complements them.
+
+The same disposable database also verifies F3's narrow slug error translation
+against actual MySQL driver diagnostics: taxonomy and taxonomy-scoped term
+duplicates on creation and edit (four cases). These are constraint checks, not
+additional contention scenarios. They assert the slug field association and
+unchanged stored rows. The runner supplies a minimal translator for this check;
+Pest verifies the full Filament form, standard validation messages, and retry
+behavior. Unknown constraints remain unmodified exceptions.

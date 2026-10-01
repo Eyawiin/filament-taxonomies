@@ -2,6 +2,7 @@
 
 namespace Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Tables;
 
+use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyParentException;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
@@ -46,14 +47,22 @@ class TaxonomiesTable
                     ),
                 EditAction::make(),
                 DeleteAction::make()
-                    ->using(function (Taxonomy $record) use ($resource): bool {
+                    ->failureNotificationTitle('The taxonomy could not be deleted')
+                    ->using(function (Taxonomy $record, DeleteAction $action) use ($resource): bool {
                         $service = app(TaxonomyTreeService::class);
-                        $deleted = $service->withTaxonomyLock($record, function (Taxonomy $taxonomy) use ($service, $resource): bool {
-                            $fresh = $resource::getEloquentQuery()->lockForUpdate()->findOrFail($taxonomy->getKey());
-                            $resource::getDeleteAuthorizationResponse($fresh)->authorize();
 
-                            return $service->deleteTaxonomy($fresh);
-                        });
+                        try {
+                            $deleted = $service->withTaxonomyLock($record, function (Taxonomy $taxonomy) use ($service, $resource): bool {
+                                $fresh = $resource::getEloquentQuery()->lockForUpdate()->findOrFail($taxonomy->getKey());
+                                $resource::getDeleteAuthorizationResponse($fresh)->authorize();
+
+                                return $service->deleteTaxonomy($fresh);
+                            });
+                        } catch (InvalidTaxonomyParentException $exception) {
+                            $action->failureNotificationBody($exception->getMessage());
+
+                            return false;
+                        }
 
                         if ($deleted) {
                             // Preserve the native action record state for consumer after hooks.

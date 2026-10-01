@@ -2,8 +2,11 @@
 
 namespace Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages;
 
+use Eyawiin\FilamentTaxonomies\Forms\TaxonomySlugValidation;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 
 class EditTaxonomy extends EditRecord
 {
@@ -15,5 +18,14 @@ class EditTaxonomy extends EditRecord
         $this->record = $this->resolveRecord($this->getRecord()->getRouteKey());
 
         parent::hydrate();
+    }
+
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        try {
+            return parent::handleRecordUpdate($record, $data);
+        } catch (UniqueConstraintViolationException $exception) {
+            TaxonomySlugValidation::report($exception, 'taxonomies', $this->form->getStatePath() . '.slug');
+        }
     }
 }

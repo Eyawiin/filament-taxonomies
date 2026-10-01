@@ -8,6 +8,7 @@ use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use Illuminate\Validation\Rules\Unique;
 
 class TaxonomyTermForm
 {
@@ -26,6 +27,12 @@ class TaxonomyTermForm
                 ->maxLength(255),
 
             TextInput::make('slug')
+                ->unique(
+                    table: TaxonomyTerm::class,
+                    ignorable: $term,
+                    ignoreRecord: false,
+                    modifyRuleUsing: fn (Unique $rule): Unique => $rule->where('taxonomy_id', $taxonomy->getKey()),
+                )
                 ->required()
                 ->maxLength(255),
 

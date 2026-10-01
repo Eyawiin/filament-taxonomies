@@ -1,10 +1,17 @@
 <?php
 
 use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyParentException;
+use Eyawiin\FilamentTaxonomies\Forms\TaxonomySlugValidation;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
+use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Translation\ArrayLoader;
+use Illuminate\Translation\Translator;
+use Illuminate\Validation\Factory;
+use Illuminate\Validation\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
 require __DIR__ . '/Worker.php';
@@ -180,6 +187,49 @@ try {
     }
     echo "PASS independent taxonomies progress while another taxonomy is locked\n";
     echo "7 concurrency scenarios passed.\n";
+
+    // The full form/retry path is exercised in Pest. Here use real MySQL errors
+    // to prove the diagnostic matcher recognizes the actual package constraints.
+    $translator = new Translator(new ArrayLoader, 'en');
+    $translator->addLines(['validation.unique' => 'The :attribute has already been taken.'], 'en');
+    $capsule->getContainer()->instance('translator', $translator);
+    $capsule->getContainer()->instance('validator', new Factory($translator, $capsule->getContainer()));
+    $tax = Taxonomy::create(['name' => 'Validation', 'slug' => 'mysql-validation']);
+    $other = Taxonomy::create(['name' => 'Subject', 'slug' => 'mysql-subject']);
+    $existing = $tax->terms()->create(['name' => 'Existing', 'slug' => 'existing']);
+    $subject = $tax->terms()->create(['name' => 'Subject', 'slug' => 'subject', 'position' => 1]);
+    $beforeTaxonomies = Taxonomy::orderBy('id')->get()->toArray();
+    $beforeTerms = TaxonomyTerm::orderBy('id')->get()->toArray();
+    $service = new TaxonomyTreeService;
+
+    foreach (['taxonomies', 'taxonomy_terms'] as $table) {
+        foreach (['create', 'edit'] as $operation) {
+            try {
+                try {
+                    if ($table === 'taxonomies') {
+                        $operation === 'create'
+                            ? Taxonomy::create(['name' => 'Changed', 'slug' => $tax->slug])
+                            : $other->update(['name' => 'Changed', 'slug' => $tax->slug]);
+                    } elseif ($operation === 'create') {
+                        $service->createTerm($tax, 'Changed', $existing->slug);
+                    } else {
+                        $subject->fill(['name' => 'Changed', 'slug' => $existing->slug]);
+                        $service->setParent($subject, null);
+                    }
+                } catch (UniqueConstraintViolationException $exception) {
+                    TaxonomySlugValidation::report($exception, $table, 'data.slug');
+                }
+
+                throw new RuntimeException('Expected a database slug conflict.');
+            } catch (ValidationException $exception) {
+                checkConcurrency($exception->errors() === ['data.slug' => ['The slug has already been taken.']], 'MySQL slug conflict must retain its field association.');
+            }
+            checkConcurrency(Taxonomy::orderBy('id')->get()->toArray() === $beforeTaxonomies && TaxonomyTerm::orderBy('id')->get()->toArray() === $beforeTerms, 'A slug conflict must leave all stored data unchanged.');
+            echo 'PASS MySQL slug constraint feedback: ' . $table . ' ' . $operation . "\n";
+        }
+    }
+    echo "4 MySQL slug constraint cases passed.\n";
+
 } catch (Throwable $exception) {
     fwrite(STDERR, $exception::class . ': ' . $exception->getMessage() . "\n");
     $failed = true;

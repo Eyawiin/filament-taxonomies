@@ -41,6 +41,7 @@ class TaxonomyParentSelect
 
         return Select::make('parent_id')
             ->label('Parent')
+            ->stateCast(new TaxonomyParentIdCast)
             ->view('filament-taxonomies::forms.parent-tree-select')
             ->viewData(['nodes' => $nodes])
             ->options($options)
@@ -51,6 +52,7 @@ class TaxonomyParentSelect
             ->searchable()
             ->native(false)
             ->nullable()
+            ->rules(['integer', 'min:1'])
             ->placeholder('No parent (root term)')
             ->exists(
                 table: TaxonomyTerm::class,

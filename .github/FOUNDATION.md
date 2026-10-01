@@ -2,7 +2,7 @@
 
 Decision date: 2026-10-01. Reviewed source baseline: `5.x`, `2ec2cea`.
 
-This contributor document records F0's decisions and executable reproductions. **F1 implements the management permission and query visibility contract. F2 implements coordinated hierarchy writes, verified on MySQL 8.4/InnoDB. Validation, field accessibility, and distribution requirements remain for later milestones.** The behavior and test status below distinguish the two. The local, gitignored `ROADMAP.md` holds the complete implementation sequence.
+This contributor document records F0's decisions and executable reproductions. **F1 implements the management permission and query visibility contract. F2 implements coordinated hierarchy writes, verified on MySQL 8.4/InnoDB. F3 implements scoped slug validation and controlled mutation feedback. Field accessibility and distribution requirements remain for later milestones.** The behavior and test status below distinguish completed and pending contracts. The local, gitignored `ROADMAP.md` holds the complete implementation sequence.
 
 ## F0 implementation plan
 
@@ -117,8 +117,8 @@ npm run test:js
 composer test:pending
 npm run test:js:pending
 
-# Next milestone: form validation.
-vendor/bin/pest --no-coverage tests/Pending/SlugValidationTest.php
+# Required F3 form validation regressions.
+vendor/bin/pest --no-coverage tests/Feature/Resources/Taxonomies/SlugValidationTest.php
 
 # Explicit MySQL gate; see tests-concurrency/README.md for server setup.
 composer test:concurrency
@@ -132,7 +132,7 @@ composer test:concurrency
 | F1 — implemented | `tests/Feature/Resources/Taxonomies/TaxonomyTermPolicyCompatibilityTest.php` | 17 | Filament defaults, strict mode, Gate callbacks, active guard, and create context pass |
 | F1 — implemented | `tests-js/term-movement-permissions.test.js` | 3 | Drag capability changes, read-only destinations, and revocation before submission pass |
 | F2 — implemented | `tests/Feature/Resources/Taxonomies/HierarchyOrderingTest.php` | 4 | Service/edit source normalization and root/nested promotion order pass |
-| F3 | `tests/Pending/SlugValidationTest.php` | 4 | Create/edit taxonomy and term throw database uniqueness exceptions instead of field errors |
+| F3 — implemented locally | `tests/Feature/Resources/Taxonomies/*ValidationTest.php` and focused conflict/feedback groups | 70 | Scoped uniqueness, edit exemptions, stale parents, retries, action identities, and expected errors pass |
 | F4 | `tests-js/pending/parent-tree.test.js` | 1 | Home/Enter selects the first term instead of clearing |
 | F5 | `tests/Pending/ConfigPublishingTest.php` | 2 | Publish registry is empty; config key is absent |
 
@@ -344,3 +344,115 @@ full suite passes: 215 tests / 819 assertions. The current Laravel 13 suite
 passes: 215 tests / 825 assertions. All local runs used PHP 8.3 on Ubuntu WSL.
 Changed-file Pint and whitespace checks pass. These local runs do not establish
 the PHP 8.4 or Windows results; the new GitHub matrix will verify those.
+
+## F3 implementation and verification — 2026-10-02
+
+### Implementation plan and critical decisions
+
+Reviewed F0's validation/constraint contracts, F1's scoped authorization,
+F2's current-read/rollback boundary, native Filament validation/persistence hooks,
+Laravel database exception diagnostics, and the four pending slug reproductions.
+The original four cases were rerun: each failed with a database uniqueness
+exception before implementation.
+
+1. Use native unique rules: global taxonomy slugs; term slugs within the owning
+   taxonomy. Ignore only the server-resolved edited model. Check hidden rows too,
+   matching the database constraint; keep all migrations unchanged.
+2. Keep current parent membership/cycle validation in F2's service. At the form
+   boundary, accept nullable/empty root state and positive integer/string IDs,
+   reject malformed input, and resolve the scoped parent again under the lock.
+3. Convert parent domain failures to the mounted form's parent_id field.
+   Missing/scoped source records and denied authorization retain F1 behavior.
+   Expected move errors use the move error bag; expected deletion failures use
+   native failure notifications. The service retains domain/database exceptions.
+4. Convert only recognized SQLite/MySQL slug constraint failures to the relevant
+   slug field. Match the written table and exact driver constraint diagnostics,
+   never interpolated SQL/user bindings. Unknown indices, driver formats, other
+   tables, primary-key failures, and unexpected persistence failures propagate.
+5. Promote the four F0 slug cases and organize focused coverage by slug
+   validation, late conflicts/retries, diagnostic recognition, parent input,
+   and action feedback. Reuse the existing disposable MySQL gate.
+
+Implementation review reproduced boolean-to-term coercion by Filament's default
+select cast. The internal TaxonomyParentIdCast preserves invalid types as invalid
+field input rather than silently selecting a term. Positive IDs are deliberately
+normalized at resolveParent; root clearing no longer depends on empty().
+Integer-valued JSON numbers reach PHP as integers; fractional numbers, booleans,
+arrays, zero, negatives, overflow, and malformed strings are rejected.
+No new slug formatting restrictions or automatic observer retry were introduced.
+Package-wide message localization remains F4/F5; slug conflicts reuse Laravel's
+translated unique validation message.
+
+### Verification and scope
+
+- Required PHP: **267 passed / 1145 assertions**, PHP 8.3 / Laravel 13 / SQLite.
+  Four pending slug cases promoted; 48 additional F3 cases required.
+- Full required JavaScript: **14 passed**.
+- PHPStan level 4: no errors; full Pint: **84 files pass**.
+- Composer strict validation and whitespace checks pass.
+- MySQL **8.4.11 / InnoDB / REPEATABLE READ**: existing seven contention scenarios
+  pass, including six observed lock waits. Four additional actual driver
+  constraint checks pass (taxonomy/term create/edit), with field association and
+  unchanged stored data. These four are constraint checks, not concurrency cases.
+- Native stateCast/StateCast/Select/unique integration was checked against official
+  Filament v5.0.0 source. This does not establish the full minimum-dependency matrix.
+- Corrected retries after actual post-validation SQLite conflicts pass. The tests
+  force the conflict through a saving observer; they do not claim parallel
+  Filament requests. Post-validation parent invalidation uses a query hook and
+  proves rollback/current checks, not independent-process parent contention.
+- Remaining explicit pending PHP: **two F5 config failures**, rerun and confirmed.
+  The F4 keyboard-root JS specification remains pending.
+- The task's disposable MySQL container/data were removed. No hierarchy service,
+  schema, dependency, workflow, JavaScript, or generated asset change.
+- Local implementation verification is complete. The separate user-requested
+  milestone review round and F3 commit/push have not happened yet. F4 is next
+  after that review.
+
+Recognized race-error translation deliberately covers the package's standard
+SQLite/MySQL tables and constraints. Custom names/prefixes and other engine
+diagnostics remain original database exceptions rather than guessed field errors.
+Browser/assistive technology verification remains F4; external CI for the
+uncommitted F3 revision is unverified.
+
+### F3 review round — 2026-10-02
+
+Reviewed the full runtime/form/action/view diff, promoted/new tests, MySQL runner,
+F0 contracts, F1 authorization/scoped identity boundaries, and F2 current-read/
+rollback behavior. The review found one additional runtime issue:
+
+- Action-record lookup still cast arbitrary input to int. Numeric suffixes,
+  fractions, booleans, and arrays could resolve to an existing term rather than
+  fail. Reproduced eight failing cases with the original cast. Both action source
+  and form parent lookup now reuse positive integer/string normalization. Invalid
+  sources retain the missing-record response; invalid parents retain field errors.
+  Valid string IDs and the independent policy/visibility boundaries still work.
+
+Added 16 action-identity regressions and two cross-endpoint movement retry cases.
+The latter already passed and required no runtime change. The Livewire test
+client must have exception handling configured before construction; the new
+missing-record tests follow the existing suite's setup. No other F3 finding
+remains unresolved.
+
+Final review gates:
+
+- Current PHP 8.3 / Laravel 13.33.0 / Filament 5.8.4 / Livewire 4.4.6:
+  **285 tests / 1200 assertions pass**.
+- Isolated workflow-style prefer-lowest installs on PHP 8.3/Ubuntu WSL:
+  **285 tests / 1194 assertions pass** in each Laravel 11/12 lane.
+  Actual resolved versions: Laravel 11.x-dev/Testbench 9.13.0 and Laravel
+  12.69.0/Testbench 10.2.0; both use Filament 5.7.6/Livewire 4.3.4.
+  These results establish those installs, not every minimum allowed version.
+- Required JS: **14 pass**. PHPStan level 4, full Pint (**85 files**), strict
+  Composer validation, and whitespace checks pass.
+- MySQL 8.4.11/InnoDB: **seven concurrency scenarios plus four slug constraint
+  checks pass**. Six actual lock waits are observed. A temporary-container
+  readiness error was resolved by waiting for its final TCP listener, not the
+  initialization socket; no package change was needed.
+- Disposable MySQL server/data and both isolated dependency copies removed.
+  Main dependencies and workbench storage remain intact.
+- Four F0 slug cases promoted; 66 additional F3 cases required (70 total F3 cases).
+  Intentional later specifications remain two PHP F5 config cases and the F4
+  keyboard-root JS case. Localization and browser accessibility remain F4/F5.
+- F3 review is complete and local gates pass. Following the user's established
+  milestone procedure, proceed to commit/push on 5.x. Remote CI for that revision
+  is a separate verification result to record after pushing.

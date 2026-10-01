@@ -1,6 +1,5 @@
 <?php
 
-use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyParentException;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\ListTaxonomies;
@@ -11,6 +10,7 @@ use Eyawiin\FilamentTaxonomies\Tests\Support\TaxonomyTermMutationPolicy;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
+use Filament\Notifications\Notification;
 use Illuminate\Auth\GenericUser;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
@@ -92,9 +92,13 @@ it('routes taxonomy deletion through managed cascade validation', function (): v
     ['taxonomy' => $taxonomy, 'sourceParent' => $parent] = OrderedTaxonomyTreeFixture::create();
     $other = Taxonomy::create(['name' => 'Other', 'slug' => 'other']);
     $foreign = $other->terms()->create(['name' => 'Foreign', 'slug' => 'foreign', 'parent_id' => $parent->id]);
-    expect(fn () => Livewire::test(ListTaxonomies::class)
-        ->callAction(TestAction::make(DeleteAction::class)->table($taxonomy)))
-        ->toThrow(InvalidTaxonomyParentException::class);
+    $before = TaxonomyTerm::orderBy('id')->get()->toArray();
+    Livewire::test(ListTaxonomies::class)
+        ->callAction(TestAction::make(DeleteAction::class)->table($taxonomy))
+        ->assertNotified(Notification::make()->danger()
+            ->persistent()->title('The taxonomy could not be deleted')
+            ->body('Deletion would affect a term belonging to another taxonomy.'));
+    expect(TaxonomyTerm::orderBy('id')->get()->toArray())->toBe($before);
     expect($taxonomy->fresh())->not->toBeNull()->and($foreign->fresh()->parent_id)->toBe($parent->id);
 });
 
