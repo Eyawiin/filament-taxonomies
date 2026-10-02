@@ -132,6 +132,7 @@ export function createTreeDrag({ root, isBusy, onDrop }) {
 
             const handle = row.querySelector('[data-taxonomy-drag-handle]')
             const termId = Number(term.dataset.termId)
+            if (!Number.isSafeInteger(termId) || termId < 1) continue
 
             const cleanup = combine(
                 draggable({

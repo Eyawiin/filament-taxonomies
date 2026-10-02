@@ -1,0 +1,1189 @@
+{
+  "recorded_on": "2026-10-02",
+  "source": {
+    "branch": "5.x",
+    "base_commit": "40141f6",
+    "state": "F6 working tree after both F0-F5 review campaigns",
+    "note": "Final identity guards and all read/render optimizations included in the refreshed measurements."
+  },
+  "environment": {
+    "cpu": "AMD Ryzen 5 2600, 6 cores / 12 logical CPUs",
+    "os": "Ubuntu under WSL2, Linux 6.18.40.1-microsoft-standard-WSL2",
+    "php": "8.3.33",
+    "laravel": "13.33.0",
+    "filament": "5.8.4",
+    "livewire": "4.4.6",
+    "testbench": "11.3.0",
+    "node": "24.21.0",
+    "sqlite": "3.46.1",
+    "xdebug_mode": "off",
+    "browser": "153.0.8010.12",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "server": "single PHP development server; Testbench app.debug=true"
+  },
+  "fixture_shapes": {
+    "broad-100": {
+      "terms": 100,
+      "depth": 2,
+      "roots": 10
+    },
+    "broad-1000": {
+      "terms": 1000,
+      "depth": 3,
+      "roots": 10
+    },
+    "mixed-100-depth4": {
+      "terms": 100,
+      "depth": 4,
+      "roots": 25
+    },
+    "deep-32": {
+      "terms": 32,
+      "depth": 32,
+      "roots": 1
+    }
+  },
+  "methodology": "tests-performance/README.md; three page-load samples, three server samples after one warm-up, one sample per search/navigation action. No competing test jobs during final measurement.",
+  "comparison_notes": [
+    "Baseline has three fixture taxonomies plus 100 sidebar taxonomies; final has four plus 100.",
+    "Auto-increment IDs differ between runs and can change encoded byte counts.",
+    "Timings include automation overhead and ordinary browser caching, not production load or event-to-paint guarantees."
+  ],
+  "baseline": {
+    "server": {
+      "environment": {
+        "php": "8.3.33",
+        "laravel": "13.33.0",
+        "database": "3.46.1",
+        "xdebug_mode": "off"
+      },
+      "fixtures": {
+        "broad-100": {
+          "tree": [
+            {
+              "ms": 3.02069,
+              "queries": 1,
+              "bytes": 15482
+            },
+            {
+              "ms": 2.835978,
+              "queries": 1,
+              "bytes": 15482
+            },
+            {
+              "ms": 2.800776,
+              "queries": 1,
+              "bytes": 15482
+            }
+          ],
+          "descendants": [
+            {
+              "ms": 0.547934,
+              "queries": 2,
+              "bytes": 51
+            },
+            {
+              "ms": 0.531433,
+              "queries": 2,
+              "bytes": 51
+            },
+            {
+              "ms": 0.663141,
+              "queries": 2,
+              "bytes": 51
+            }
+          ],
+          "parent_configuration": [
+            {
+              "ms": 5.09532,
+              "queries": 5,
+              "bytes": 10435
+            },
+            {
+              "ms": 5.385238,
+              "queries": 5,
+              "bytes": 10435
+            },
+            {
+              "ms": 4.841404,
+              "queries": 5,
+              "bytes": 10435
+            }
+          ],
+          "sidebar": [
+            {
+              "ms": 11.949651,
+              "queries": 1,
+              "bytes": 8089
+            },
+            {
+              "ms": 11.180602,
+              "queries": 1,
+              "bytes": 8089
+            },
+            {
+              "ms": 11.634831,
+              "queries": 1,
+              "bytes": 8089
+            }
+          ]
+        },
+        "broad-1000": {
+          "tree": [
+            {
+              "ms": 27.136105,
+              "queries": 1,
+              "bytes": 155792
+            },
+            {
+              "ms": 27.517949,
+              "queries": 1,
+              "bytes": 155792
+            },
+            {
+              "ms": 26.649594,
+              "queries": 1,
+              "bytes": 155792
+            }
+          ],
+          "descendants": [
+            {
+              "ms": 2.929486,
+              "queries": 3,
+              "bytes": 551
+            },
+            {
+              "ms": 3.125498,
+              "queries": 3,
+              "bytes": 551
+            },
+            {
+              "ms": 3.107598,
+              "queries": 3,
+              "bytes": 551
+            }
+          ],
+          "parent_configuration": [
+            {
+              "ms": 35.970987,
+              "queries": 6,
+              "bytes": 105795
+            },
+            {
+              "ms": 35.873081,
+              "queries": 6,
+              "bytes": 105795
+            },
+            {
+              "ms": 39.548515,
+              "queries": 6,
+              "bytes": 105795
+            }
+          ],
+          "sidebar": [
+            {
+              "ms": 11.716645,
+              "queries": 1,
+              "bytes": 8089
+            },
+            {
+              "ms": 11.715645,
+              "queries": 1,
+              "bytes": 8089
+            },
+            {
+              "ms": 12.43119,
+              "queries": 1,
+              "bytes": 8089
+            }
+          ]
+        },
+        "deep-32": {
+          "tree": [
+            {
+              "ms": 2.030029,
+              "queries": 1,
+              "bytes": 4920
+            },
+            {
+              "ms": 1.614802,
+              "queries": 1,
+              "bytes": 4920
+            },
+            {
+              "ms": 2.762876,
+              "queries": 1,
+              "bytes": 4920
+            }
+          ],
+          "descendants": [
+            {
+              "ms": 5.855473,
+              "queries": 32,
+              "bytes": 156
+            },
+            {
+              "ms": 5.891375,
+              "queries": 32,
+              "bytes": 156
+            },
+            {
+              "ms": 6.112289,
+              "queries": 32,
+              "bytes": 156
+            }
+          ],
+          "parent_configuration": [
+            {
+              "ms": 8.528343,
+              "queries": 35,
+              "bytes": 6441
+            },
+            {
+              "ms": 8.318729,
+              "queries": 35,
+              "bytes": 6441
+            },
+            {
+              "ms": 8.197921,
+              "queries": 35,
+              "bytes": 6441
+            }
+          ],
+          "sidebar": [
+            {
+              "ms": 13.126135,
+              "queries": 1,
+              "bytes": 8089
+            },
+            {
+              "ms": 13.673069,
+              "queries": 1,
+              "bytes": 8089
+            },
+            {
+              "ms": 13.443155,
+              "queries": 1,
+              "bytes": 8089
+            }
+          ]
+        }
+      }
+    },
+    "browser": {
+      "browser": "153.0.8010.12",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "fixtures": {
+        "broad-100": {
+          "manage": [
+            {
+              "ready_ms": 1443.718529,
+              "server_ms": 337.041398,
+              "queries": 203,
+              "html_bytes": 1445853,
+              "dom_elements": 4801,
+              "sidebar_items": 106
+            },
+            {
+              "ready_ms": 1444.8294999999998,
+              "server_ms": 388.789068,
+              "queries": 203,
+              "html_bytes": 1445853,
+              "dom_elements": 4801,
+              "sidebar_items": 106
+            },
+            {
+              "ready_ms": 1363.886484,
+              "server_ms": 333.43777,
+              "queries": 203,
+              "html_bytes": 1445853,
+              "dom_elements": 4801,
+              "sidebar_items": 106
+            }
+          ],
+          "parent": [
+            {
+              "ready_ms": 516.9615119999999,
+              "server_ms": 87.218411,
+              "queries": 8,
+              "html_bytes": 441826,
+              "dom_elements": 1676,
+              "sidebar_items": 106
+            },
+            {
+              "ready_ms": 489.70427199999995,
+              "server_ms": 80.957738,
+              "queries": 8,
+              "html_bytes": 441826,
+              "dom_elements": 1676,
+              "sidebar_items": 106
+            },
+            {
+              "ready_ms": 495.64654100000007,
+              "server_ms": 80.395003,
+              "queries": 8,
+              "html_bytes": 441826,
+              "dom_elements": 1676,
+              "sidebar_items": 106
+            }
+          ],
+          "search": [
+            {
+              "query": "Term 0099",
+              "ms": 146.84363699999994
+            },
+            {
+              "query": "no-matching-term",
+              "ms": 189.54989400000068
+            },
+            {
+              "query": "",
+              "ms": 144.66300200000023
+            }
+          ],
+          "end_navigation_ms": 67.97832999999991
+        },
+        "broad-1000": {
+          "manage": [
+            {
+              "ready_ms": 11477.865624999999,
+              "server_ms": 2703.965155,
+              "queries": 2003,
+              "html_bytes": 11952185,
+              "dom_elements": 37471,
+              "sidebar_items": 106
+            },
+            {
+              "ready_ms": 11717.550287999999,
+              "server_ms": 2760.937928,
+              "queries": 2003,
+              "html_bytes": 11952185,
+              "dom_elements": 37471,
+              "sidebar_items": 106
+            },
+            {
+              "ready_ms": 11952.761980999996,
+              "server_ms": 2795.786245,
+              "queries": 2003,
+              "html_bytes": 11952185,
+              "dom_elements": 37471,
+              "sidebar_items": 106
+            }
+          ],
+          "parent": [
+            {
+              "ready_ms": 4554.845026999996,
+              "server_ms": 225.140509,
+              "queries": 9,
+              "html_bytes": 1956307,
+              "dom_elements": 6366,
+              "sidebar_items": 106
+            },
+            {
+              "ready_ms": 4217.537772000003,
+              "server_ms": 203.906803,
+              "queries": 9,
+              "html_bytes": 1956307,
+              "dom_elements": 6366,
+              "sidebar_items": 106
+            },
+            {
+              "ready_ms": 4366.278091,
+              "server_ms": 233.822578,
+              "queries": 9,
+              "html_bytes": 1956307,
+              "dom_elements": 6366,
+              "sidebar_items": 106
+            }
+          ],
+          "search": [
+            {
+              "query": "Term 0999",
+              "ms": 1596.788185999998
+            },
+            {
+              "query": "no-matching-term",
+              "ms": 1231.768124000002
+            },
+            {
+              "query": "",
+              "ms": 4421.405317999997
+            }
+          ],
+          "end_navigation_ms": 323.6572210000013
+        },
+        "deep-32": {
+          "manage": [
+            {
+              "ready_ms": 956.0674230000004,
+              "server_ms": 175.218746,
+              "queries": 67,
+              "html_bytes": 648563,
+              "dom_elements": 2419,
+              "sidebar_items": 106
+            },
+            {
+              "ready_ms": 832.9598249999981,
+              "server_ms": 187.532892,
+              "queries": 67,
+              "html_bytes": 648563,
+              "dom_elements": 2419,
+              "sidebar_items": 106
+            },
+            {
+              "ready_ms": 802.154607000004,
+              "server_ms": 154.611638,
+              "queries": 67,
+              "html_bytes": 648563,
+              "dom_elements": 2419,
+              "sidebar_items": 106
+            }
+          ],
+          "parent": [
+            {
+              "ready_ms": 460.3224959999934,
+              "server_ms": 97.241462,
+              "queries": 38,
+              "html_bytes": 343851,
+              "dom_elements": 1379,
+              "sidebar_items": 106
+            },
+            {
+              "ready_ms": 416.8216850000026,
+              "server_ms": 86.342583,
+              "queries": 38,
+              "html_bytes": 343851,
+              "dom_elements": 1379,
+              "sidebar_items": 106
+            },
+            {
+              "ready_ms": 442.31767400000535,
+              "server_ms": 85.846151,
+              "queries": 38,
+              "html_bytes": 343851,
+              "dom_elements": 1379,
+              "sidebar_items": 106
+            }
+          ],
+          "search": [
+            {
+              "query": "Term 0031",
+              "ms": 97.42197299998952
+            },
+            {
+              "query": "no-matching-term",
+              "ms": 117.11590200000501
+            },
+            {
+              "query": "",
+              "ms": 115.40609399999084
+            }
+          ],
+          "end_navigation_ms": 73.44047800000408
+        }
+      }
+    }
+  },
+  "optimized": {
+    "server": {
+      "environment": {
+        "php": "8.3.33",
+        "laravel": "13.33.0",
+        "database": "3.46.1",
+        "xdebug_mode": "off"
+      },
+      "fixtures": {
+        "broad-100": {
+          "tree": [
+            {
+              "ms": 2.619322,
+              "queries": 1,
+              "bytes": 15772
+            },
+            {
+              "ms": 3.00744,
+              "queries": 1,
+              "bytes": 15772
+            },
+            {
+              "ms": 2.656723,
+              "queries": 1,
+              "bytes": 15772
+            }
+          ],
+          "descendants": [
+            {
+              "ms": 0.378817,
+              "queries": 2,
+              "bytes": 61
+            },
+            {
+              "ms": 0.336915,
+              "queries": 2,
+              "bytes": 61
+            },
+            {
+              "ms": 0.351217,
+              "queries": 2,
+              "bytes": 61
+            }
+          ],
+          "diagnostics": [
+            {
+              "ms": 0.310014,
+              "queries": 1,
+              "bytes": 2
+            },
+            {
+              "ms": 0.324615,
+              "queries": 1,
+              "bytes": 2
+            },
+            {
+              "ms": 0.311414,
+              "queries": 1,
+              "bytes": 2
+            }
+          ],
+          "parent_configuration": [
+            {
+              "ms": 4.357003,
+              "queries": 3,
+              "bytes": 10625
+            },
+            {
+              "ms": 4.388204,
+              "queries": 3,
+              "bytes": 10625
+            },
+            {
+              "ms": 3.932584,
+              "queries": 3,
+              "bytes": 10625
+            }
+          ],
+          "sidebar": [
+            {
+              "ms": 12.366377,
+              "queries": 1,
+              "bytes": 8279
+            },
+            {
+              "ms": 11.562339,
+              "queries": 1,
+              "bytes": 8279
+            },
+            {
+              "ms": 11.787949,
+              "queries": 1,
+              "bytes": 8279
+            }
+          ]
+        },
+        "broad-1000": {
+          "tree": [
+            {
+              "ms": 24.90746,
+              "queries": 1,
+              "bytes": 158782
+            },
+            {
+              "ms": 23.967017,
+              "queries": 1,
+              "bytes": 158782
+            },
+            {
+              "ms": 24.45144,
+              "queries": 1,
+              "bytes": 158782
+            }
+          ],
+          "descendants": [
+            {
+              "ms": 0.705133,
+              "queries": 3,
+              "bytes": 661
+            },
+            {
+              "ms": 0.871941,
+              "queries": 3,
+              "bytes": 661
+            },
+            {
+              "ms": 0.704133,
+              "queries": 3,
+              "bytes": 661
+            }
+          ],
+          "diagnostics": [
+            {
+              "ms": 1.591774,
+              "queries": 1,
+              "bytes": 2
+            },
+            {
+              "ms": 1.48987,
+              "queries": 1,
+              "bytes": 2
+            },
+            {
+              "ms": 1.495369,
+              "queries": 1,
+              "bytes": 2
+            }
+          ],
+          "parent_configuration": [
+            {
+              "ms": 31.242556,
+              "queries": 3,
+              "bytes": 108675
+            },
+            {
+              "ms": 31.665276,
+              "queries": 3,
+              "bytes": 108675
+            },
+            {
+              "ms": 36.885219,
+              "queries": 3,
+              "bytes": 108675
+            }
+          ],
+          "sidebar": [
+            {
+              "ms": 13.470428,
+              "queries": 1,
+              "bytes": 8279
+            },
+            {
+              "ms": 12.968904,
+              "queries": 1,
+              "bytes": 8279
+            },
+            {
+              "ms": 12.982805,
+              "queries": 1,
+              "bytes": 8279
+            }
+          ]
+        },
+        "mixed-100-depth4": {
+          "tree": [
+            {
+              "ms": 3.082244,
+              "queries": 1,
+              "bytes": 15713
+            },
+            {
+              "ms": 2.702626,
+              "queries": 1,
+              "bytes": 15713
+            },
+            {
+              "ms": 2.597521,
+              "queries": 1,
+              "bytes": 15713
+            }
+          ],
+          "descendants": [
+            {
+              "ms": 0.628729,
+              "queries": 4,
+              "bytes": 19
+            },
+            {
+              "ms": 0.583227,
+              "queries": 4,
+              "bytes": 19
+            },
+            {
+              "ms": 0.659631,
+              "queries": 4,
+              "bytes": 19
+            }
+          ],
+          "diagnostics": [
+            {
+              "ms": 0.333615,
+              "queries": 1,
+              "bytes": 2
+            },
+            {
+              "ms": 0.305815,
+              "queries": 1,
+              "bytes": 2
+            },
+            {
+              "ms": 0.301914,
+              "queries": 1,
+              "bytes": 2
+            }
+          ],
+          "parent_configuration": [
+            {
+              "ms": 3.931383,
+              "queries": 3,
+              "bytes": 10801
+            },
+            {
+              "ms": 3.877781,
+              "queries": 3,
+              "bytes": 10801
+            },
+            {
+              "ms": 3.901881,
+              "queries": 3,
+              "bytes": 10801
+            }
+          ],
+          "sidebar": [
+            {
+              "ms": 12.820298,
+              "queries": 1,
+              "bytes": 8279
+            },
+            {
+              "ms": 12.669491,
+              "queries": 1,
+              "bytes": 8279
+            },
+            {
+              "ms": 12.406978,
+              "queries": 1,
+              "bytes": 8279
+            }
+          ]
+        },
+        "deep-32": {
+          "tree": [
+            {
+              "ms": 1.07215,
+              "queries": 1,
+              "bytes": 5015
+            },
+            {
+              "ms": 1.077651,
+              "queries": 1,
+              "bytes": 5015
+            },
+            {
+              "ms": 1.165354,
+              "queries": 1,
+              "bytes": 5015
+            }
+          ],
+          "descendants": [
+            {
+              "ms": 4.846026,
+              "queries": 32,
+              "bytes": 187
+            },
+            {
+              "ms": 5.552759,
+              "queries": 32,
+              "bytes": 187
+            },
+            {
+              "ms": 5.017234,
+              "queries": 32,
+              "bytes": 187
+            }
+          ],
+          "diagnostics": [
+            {
+              "ms": 0.282713,
+              "queries": 1,
+              "bytes": 2
+            },
+            {
+              "ms": 0.219811,
+              "queries": 1,
+              "bytes": 2
+            },
+            {
+              "ms": 0.225711,
+              "queries": 1,
+              "bytes": 2
+            }
+          ],
+          "parent_configuration": [
+            {
+              "ms": 2.208203,
+              "queries": 3,
+              "bytes": 6969
+            },
+            {
+              "ms": 2.34491,
+              "queries": 3,
+              "bytes": 6969
+            },
+            {
+              "ms": 2.318208,
+              "queries": 3,
+              "bytes": 6969
+            }
+          ],
+          "sidebar": [
+            {
+              "ms": 12.143066,
+              "queries": 1,
+              "bytes": 8279
+            },
+            {
+              "ms": 12.004859,
+              "queries": 1,
+              "bytes": 8279
+            },
+            {
+              "ms": 11.965158,
+              "queries": 1,
+              "bytes": 8279
+            }
+          ]
+        }
+      }
+    },
+    "browser": {
+      "browser": "153.0.8010.12",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "fixtures": {
+        "broad-100": {
+          "manage": [
+            {
+              "ready_ms": 1398.426766,
+              "server_ms": 271.053231,
+              "queries": 3,
+              "html_bytes": 1452117,
+              "dom_elements": 4811,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 1488.2812529999997,
+              "server_ms": 270.251293,
+              "queries": 3,
+              "html_bytes": 1452117,
+              "dom_elements": 4811,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 1325.3705620000005,
+              "server_ms": 269.414655,
+              "queries": 3,
+              "html_bytes": 1452117,
+              "dom_elements": 4811,
+              "sidebar_items": 107
+            }
+          ],
+          "parent": [
+            {
+              "ready_ms": 648.5233239999998,
+              "server_ms": 87.661986,
+              "queries": 6,
+              "html_bytes": 445889,
+              "dom_elements": 1686,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 494.5355470000004,
+              "server_ms": 89.520772,
+              "queries": 6,
+              "html_bytes": 445889,
+              "dom_elements": 1686,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 471.42656999999963,
+              "server_ms": 81.041277,
+              "queries": 6,
+              "html_bytes": 445889,
+              "dom_elements": 1686,
+              "sidebar_items": 107
+            }
+          ],
+          "search": [
+            {
+              "query": "Term 0099",
+              "ms": 174.40012800000022
+            },
+            {
+              "query": "no-matching-term",
+              "ms": 140.856264
+            },
+            {
+              "query": "",
+              "ms": 123.12543800000003
+            }
+          ],
+          "end_navigation_ms": 68.01676999999927
+        },
+        "broad-1000": {
+          "manage": [
+            {
+              "ready_ms": 11121.020031,
+              "server_ms": 2023.642009,
+              "queries": 3,
+              "html_bytes": 11993549,
+              "dom_elements": 37481,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 11310.975990000003,
+              "server_ms": 2011.895291,
+              "queries": 3,
+              "html_bytes": 11993549,
+              "dom_elements": 37481,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 13031.702621999997,
+              "server_ms": 2091.526976,
+              "queries": 3,
+              "html_bytes": 11993549,
+              "dom_elements": 37481,
+              "sidebar_items": 107
+            }
+          ],
+          "parent": [
+            {
+              "ready_ms": 1864.7975059999953,
+              "server_ms": 211.456016,
+              "queries": 6,
+              "html_bytes": 1977730,
+              "dom_elements": 6376,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 1411.2051779999965,
+              "server_ms": 213.200596,
+              "queries": 6,
+              "html_bytes": 1977730,
+              "dom_elements": 6376,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 1495.3694049999976,
+              "server_ms": 220.395423,
+              "queries": 6,
+              "html_bytes": 1977730,
+              "dom_elements": 6376,
+              "sidebar_items": 107
+            }
+          ],
+          "search": [
+            {
+              "query": "Term 0999",
+              "ms": 620.724129000002
+            },
+            {
+              "query": "no-matching-term",
+              "ms": 485.30599000000075
+            },
+            {
+              "query": "",
+              "ms": 657.0201190000007
+            }
+          ],
+          "end_navigation_ms": 250.80952199999592
+        },
+        "mixed-100-depth4": {
+          "manage": [
+            {
+              "ready_ms": 1452.7442540000047,
+              "server_ms": 267.085262,
+              "queries": 3,
+              "html_bytes": 1444013,
+              "dom_elements": 5009,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 1466.9399000000049,
+              "server_ms": 263.229387,
+              "queries": 3,
+              "html_bytes": 1444013,
+              "dom_elements": 5009,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 1493.4285059999966,
+              "server_ms": 269.279963,
+              "queries": 3,
+              "html_bytes": 1444013,
+              "dom_elements": 5009,
+              "sidebar_items": 107
+            }
+          ],
+          "parent": [
+            {
+              "ready_ms": 531.6651110000021,
+              "server_ms": 85.170978,
+              "queries": 6,
+              "html_bytes": 457205,
+              "dom_elements": 1745,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 493.1771580000059,
+              "server_ms": 88.667138,
+              "queries": 6,
+              "html_bytes": 457205,
+              "dom_elements": 1745,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 533.7907300000006,
+              "server_ms": 94.145887,
+              "queries": 6,
+              "html_bytes": 457205,
+              "dom_elements": 1745,
+              "sidebar_items": 107
+            }
+          ],
+          "search": [
+            {
+              "query": "Term 0099",
+              "ms": 126.74004699999932
+            },
+            {
+              "query": "no-matching-term",
+              "ms": 140.01491700000042
+            },
+            {
+              "query": "",
+              "ms": 132.8307069999937
+            }
+          ],
+          "end_navigation_ms": 74.47580000000016
+        },
+        "deep-32": {
+          "manage": [
+            {
+              "ready_ms": 793.6995080000052,
+              "server_ms": 141.48038,
+              "queries": 3,
+              "html_bytes": 652175,
+              "dom_elements": 2429,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 773.8104529999982,
+              "server_ms": 139.931313,
+              "queries": 3,
+              "html_bytes": 652175,
+              "dom_elements": 2429,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 783.2595599999986,
+              "server_ms": 147.830053,
+              "queries": 3,
+              "html_bytes": 652175,
+              "dom_elements": 2429,
+              "sidebar_items": 107
+            }
+          ],
+          "parent": [
+            {
+              "ready_ms": 438.1923309999984,
+              "server_ms": 85.940793,
+              "queries": 6,
+              "html_bytes": 347771,
+              "dom_elements": 1389,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 403.48233900000196,
+              "server_ms": 81.21979,
+              "queries": 6,
+              "html_bytes": 347771,
+              "dom_elements": 1389,
+              "sidebar_items": 107
+            },
+            {
+              "ready_ms": 417.77635299999383,
+              "server_ms": 86.163403,
+              "queries": 6,
+              "html_bytes": 347771,
+              "dom_elements": 1389,
+              "sidebar_items": 107
+            }
+          ],
+          "search": [
+            {
+              "query": "Term 0031",
+              "ms": 99.00435500001186
+            },
+            {
+              "query": "no-matching-term",
+              "ms": 114.16950600000564
+            },
+            {
+              "query": "",
+              "ms": 95.83341799999471
+            }
+          ],
+          "end_navigation_ms": 71.57217600000149
+        }
+      }
+    }
+  },
+  "final_source_sha256": {
+    ".gitattributes": "61652d9bd5d9d2f036424002aa404a55d455d11b79876d4607405f36c7b9d69e",
+    "composer.json": "d818265c44bb92ad8b1ee5793aff0b14b22c20854d0112a990ce558d70c1304d",
+    "config/filament-taxonomies.php": "893a243d8dcc4084888378a1683b42d8fe48fee45a92a413b5b50939df1f2767",
+    "database/factories/ModelFactory.php": "65c16def9c967bc79f7ce8964f7bec3f7e442d4fb41806b3ae20e97a53b68388",
+    "database/migrations/0001_create_taxonomies_table.php": "4c2e31a686bfcf04d44c0a3a16630106f5ef81becc440ef3d1800fc7069650e7",
+    "database/migrations/0002_create_taxonomy_terms_table.php": "abbca7d9030b131e2bdd6d9d6e256193cc1ce0e30af750792429f46836989877",
+    "database/migrations/0003_add_position_to_taxonomy_terms_table.php": "05c96159cb677891f535b86387f1d564c66a7071805d9184ea6c11c667e5a1d0",
+    "resources/css/filament/admin/theme.css": "f0862bca7b08f465c88c01eb6625ae501a2e3c2b0ff3c5f986d1adbf778fa02d",
+    "resources/css/index.css": "d3341112ad8dd1ea0070999b96243d187ea8cbfbfbdc9f6dbd2f60cc48cd8bee",
+    "resources/css/taxonomy-controls.css": "7fccf0d7f5a823341793136375b3a708d98c8e0b864a27e4ce8d155d7a7f7581",
+    "resources/dist/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "resources/dist/components/taxonomy-parent-tree.js": "fb08155b0604b04985be25a788874c7e2d872aa205276bca0f2438b0cc608517",
+    "resources/dist/components/taxonomy-tree.js": "c9420d57a4e37968e4c5d2ffa6130d5d57f19636b30d15f4bf75924f73321275",
+    "resources/dist/filament-taxonomies.js": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "resources/js/components/taxonomy-parent-tree.js": "c31c6d048581ca1d6703a54155c2700f466c88a1edb02918f38bfbe6c7af62f0",
+    "resources/js/components/taxonomy-tree.js": "2fcbc0b9d1ec852aa576c227534ae10140d4cac6e038a5375da1ff83f92e7aa0",
+    "resources/js/drag/pragmatic-tree.js": "a22ccc09c12201b8bf18d37f1d12ec8529a36bb034ad3bf6cdb1843c9ede49d3",
+    "resources/js/drag/tree-hitbox.js": "10b1147b18b187aeb8ab5dd2036423ca10fd7fd7305c02d3cceee91359b34eea",
+    "resources/js/index.js": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "resources/lang/en/parent-tree.php": "3921942e8ff95e89baf754d101b11b0a966d5b91f74256b1f6429a0c078137e5",
+    "resources/lang/en/taxonomies.php": "12d17c949cd37181ad9c67a3ec09cc4b3582d6600f5f59acf9bc4aea3aea7990",
+    "resources/views/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "resources/views/components/taxonomy-tree.blade.php": "f4c4c78b88c8e0e83aed7c5763dba36bbd0e74baf2d77853ea367a3e66d8a65a",
+    "resources/views/forms/parent-tree-branch.blade.php": "719535c96d3c907a502ee7e7e0fe8d966c39baa1b57d7bf9f3406a86d3e92fde",
+    "resources/views/forms/parent-tree-select.blade.php": "70f2b03d28b05d73f6657a3715634d5d8f7aad148887bb77fef765410678f74d",
+    "resources/views/resources/taxonomies/pages/manage-taxonomy-terms.blade.php": "2846bd13231f64c6d7413c09fe9c9f8a74d4afad26a76571d1801c0a13781ce8",
+    "src/Authorization/TaxonomyTermAuthorization.php": "b37e7e14d5de0910fdba578edf356b2bd09228a1df514cc8e24edd795c06cd94",
+    "src/Enums/TaxonomyTermDropPosition.php": "6b0b78b19ac9eff8adbceb1d8502d6c469ac324877f3976b1808883f431f71a4",
+    "src/Exceptions/InvalidTaxonomyDropException.php": "95e5f3d0dea220b9fc6da7052d0d22268429b80783f653a32d10c7e0c2a5efae",
+    "src/Exceptions/InvalidTaxonomyOrderException.php": "73baf11f01f6ea1d3cfd47d1b1b9dfeffb42439eb8a90f178959be25d427ded7",
+    "src/Exceptions/InvalidTaxonomyParentException.php": "ff81c6abb8a5cb705b99450bdcf0d7d8a2e75791bd8da92f874c9ff935c950a8",
+    "src/FilamentTaxonomiesPlugin.php": "e05fa1d35a11f83fcece19d955f3afaaa3bf4d6350815674edf88c3f595be437",
+    "src/FilamentTaxonomiesServiceProvider.php": "88fd8387746f9425c4c9af4921247757d014fd894eab5664dca676e044d1795f",
+    "src/Forms/TaxonomyParentField.php": "4ee5d343d2a20f2c6a9da7319c2d7edc62b4cf29980d98258212ca980c52bb64",
+    "src/Forms/TaxonomyParentIdCast.php": "1b5a380adbc2be27856e7c314c3560313aa5a71426e5c92bb8730e42d8cf4150",
+    "src/Forms/TaxonomyParentSelect.php": "395042447f7ed631b7f7a85489a3bb9b3739bd832a303440ea813248e21ed026",
+    "src/Forms/TaxonomySlugValidation.php": "dd6e3a73506c5464392988e6b7517527269eff475821fa2fc53bb7a75db13b35",
+    "src/Models/Taxonomy.php": "a0fe603e56f673506598c17a80e5e3964b7a895a94fcce4852aeaab3e7687b9e",
+    "src/Models/TaxonomyTerm.php": "7369a60bb91f58102cef773340a65b1627fe2e022b49651f5a4e052c3f42a7e4",
+    "src/Resources/Taxonomies/Pages/CreateTaxonomy.php": "76ef45bd8d1c1bf9b28ac0a494c96ad6ab47c1675db02d653a0b6a3fd581a50b",
+    "src/Resources/Taxonomies/Pages/EditTaxonomy.php": "ba846ebffd6395c65de88263b2d21debaa89485fc81bd0af2dfbe138a43e1725",
+    "src/Resources/Taxonomies/Pages/ListTaxonomies.php": "f606a061c202f9692f8cf5038b41408a2ae55bc06e9349f659520101bdfc1cc4",
+    "src/Resources/Taxonomies/Pages/ManageTaxonomyTerms.php": "d88b9a44b427aa8e7c11b2a0bcfbda07393822b94fc370c1e413f68811432d60",
+    "src/Resources/Taxonomies/Schemas/TaxonomyForm.php": "b447465b8803c567b4f141bd1f2fd4c2af68791561f880193818fc4eb4d365d9",
+    "src/Resources/Taxonomies/Schemas/TaxonomyTermForm.php": "941a667d4cdfdaf3f583e2b6b51d0e5a09400dc6f0c8924d0419f215b7766c84",
+    "src/Resources/Taxonomies/Tables/TaxonomiesTable.php": "2c9d5063e531150380572770a8e58ee295d34160440c7d3154c69a6f92fa4de1",
+    "src/Resources/Taxonomies/TaxonomyResource.php": "26ad272d9acdca719cbdc4c03657cac2bd5933c14ab4cac837c71c97c53c68fc",
+    "src/Services/TaxonomyTreeService.php": "d548ddce0944be7bb35b2e60cf5dbc680d93bf71b066c4586586abc0c8f96cc5",
+    "src/Support/TaxonomyIdentity.php": "119e592f8fdc2c1b48c9342aa3c3a4bd135543f92c105bf2ce8a2e5048e6ddcd"
+  }
+}

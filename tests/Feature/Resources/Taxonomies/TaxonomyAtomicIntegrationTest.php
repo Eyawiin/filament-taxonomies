@@ -38,7 +38,7 @@ it('rechecks term permission after the taxonomy lock is acquired', function (): 
     $locked = false;
     $connection->setEventDispatcher(clone $dispatcher);
     $connection->getEventDispatcher()->listen(QueryExecuted::class, function (QueryExecuted $event) use ($policy, $baseLevel, &$locked): void {
-        if ($event->connection->transactionLevel() > $baseLevel && str_starts_with($event->sql, 'select * from "taxonomies"')) {
+        if ($event->connection->transactionLevel() > $baseLevel && str_starts_with($event->sql, 'select ') && str_contains($event->sql, ' from "taxonomies"')) {
             $locked = true;
             $policy->allowMutations = false;
         }

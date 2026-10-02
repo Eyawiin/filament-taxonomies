@@ -117,6 +117,57 @@ by default, without an ownership or tenant schema.
 The tree service remains independent of authentication. Consumers calling it
 directly must authorize their own integration before invoking mutations.
 
+## Tree size and imported data
+
+The current management page and parent field render the complete visible tree.
+For the measured desktop setup, plan around **100 terms per taxonomy, up to four
+levels, and approximately 100 sidebar taxonomies**. These are conservative
+operating guidelines, not database limits or enforced caps. Benchmark your own
+theme, labels, policies and hardware before expanding them.
+
+A 1,000-term tree is a stress fixture: its management page renders roughly
+37,000 DOM elements and more than 11 MB of decoded HTML. Reducing database queries
+does not make that a responsive large-tree editor. Very deep trees also exhaust
+usable indentation space. Large or deep interactive trees need a separate
+rendering design; they are outside the current responsiveness claim.
+
+Managed writes validate hierarchy and coordinate locking. Raw imports do not
+automatically receive those checks. To inspect an import without changing it:
+
+```php
+$issues = app(\Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService::class)
+    ->diagnoseTree($taxonomy);
+```
+
+Each result contains `term_id` and `reason`: `cycle`,
+`missing_or_foreign_parent`, or `invalid_identity` for a nonpositive or unrepresentable term/ancestor
+key. IDs outside PHP’s native integer range remain decimal strings in diagnostic
+results. A reason applies to the term's ancestor chain,
+including descendants affected by the defect. This read deliberately includes
+scoped-out structural rows; authorize access to the **entire taxonomy** before
+exposing its results. It is an import/admin diagnostic, not a scoped UI listing.
+It does not repair records or check slug/position rules.
+
+Normal trees show rooted visible branches only. Orphans, cycles, and branches
+behind hidden ancestors are omitted; an empty display does not prove that no
+stored terms exist. Diagnose and explicitly repair malformed imports in the
+consumer application before using managed operations on the affected hierarchy.
+
+### Identity ranges
+
+Managed storage operations require positive IDs within PHP’s native integer
+range. Unsigned imports beyond that range are rejected before record lookup;
+diagnostics preserve their exact decimal IDs. Generated term IDs at the native
+integer ceiling are rejected and rolled back because the database driver can
+already have clamped an overflowing insert ID.
+
+The current browser term controls require IDs from 1 through
+9,007,199,254,740,991 (JavaScript’s largest exact integer). Larger term IDs and
+their branches are omitted from the editor and parent options; incoming IDs
+outside this range are rejected. This bounds the current browser representation,
+not the schema or backend service. Supporting larger browser IDs requires a
+future conversion to lossless string IDs throughout state, events and actions.
+
 ## Compatibility
 
 Filament 5 requires PHP 8.2+, Laravel 11.28+ and Tailwind CSS 4.1+.
@@ -183,6 +234,11 @@ For independent-process MySQL 8.4 verification, see
 [the concurrency runner](tests-concurrency/README.md). `composer test:concurrency`
 requires an explicitly configured disposable MySQL server and fails if it is
 unavailable. It never silently skips the database gate.
+
+Optional isolated scale measurements are documented in
+[the performance harness](tests-performance/README.md); run them with
+`npm run test:performance`. The recorded acceptance evidence and remaining checks
+are in [F6 acceptance](.github/F6_ACCEPTANCE.md).
 
 Formatting CI runs `pint --test` without committing or pushing changes.
 All F0 pending specifications have been promoted into required suites.

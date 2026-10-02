@@ -18,7 +18,7 @@ migrations there, disconnects workers, and drops that database in finally.
 
 The runner fails when its server/privileges/version are unavailable; it never
 silently skips. It is independent of PHPUnit's SQLite discovery and does not read
-the workbench .env. F5 will automate this explicit gate in CI.
+the workbench .env. F5 automates this explicit gate in CI.
 
 Seven scenarios use separate PHP processes/connections and explicit stdin/JSON
 coordination. Reported worker results must match their process exit status.
@@ -45,3 +45,19 @@ additional contention scenarios. They assert the slug field association and
 unchanged stored rows. The runner supplies a minimal translator for this check;
 Pest verifies the full Filament form, standard validation messages, and retry
 behavior. Unknown constraints remain unmodified exceptions.
+The disposable database also checks joined visibility scopes on MySQL: preserved
+term/taxonomy identities, distinct visible counts, deduplicated tree/descendant
+reads, and subtree-preserving managed movement with hidden sibling maintenance.
+This is a functional SQL check, separate from the seven contention scenarios.
+
+The F6 read-only import check also verifies cycles, foreign parents and zero-parent
+orphans without changing stored rows, including scoped-out structural ancestors.
+Only its disposable connection temporarily relaxes FK checks for a deliberately
+malformed zero-parent fixture; checks are restored immediately. This does not
+change package runtime FK settings or add a contention scenario.
+
+The final disposable import checks also exercise unsigned IDs above PHP’s native
+integer ceiling: diagnostics retain exact physical keys, managed operations
+reject aliases, oversized parent/owner references cannot select neighbouring
+records, and generated-ID exhaustion rolls back. These fixtures run last because
+explicit large IDs advance the disposable tables’ auto-increment counters.

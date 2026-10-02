@@ -5,7 +5,7 @@
 
     @if ($tree === [])
         <p class="text-sm text-gray-600 dark:text-gray-400">
-            This taxonomy does not have any terms yet.
+            No terms are available in this tree.
         </p>
     @else
         <x-filament::section>

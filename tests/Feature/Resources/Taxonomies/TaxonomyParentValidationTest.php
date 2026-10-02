@@ -85,7 +85,7 @@ it('rechecks parent availability and cycles after form validation under the taxo
     $baseLevel = $connection->transactionLevel();
     $changed = false;
     $connection->getEventDispatcher()->listen(QueryExecuted::class, function (QueryExecuted $event) use ($baseLevel, $change, $moving, $parent, $other, &$changed): void {
-        if ($changed || $event->connection->transactionLevel() <= $baseLevel || ! str_starts_with($event->sql, 'select * from "taxonomies"')) {
+        if ($changed || $event->connection->transactionLevel() <= $baseLevel || ! str_starts_with($event->sql, 'select ') || ! str_contains($event->sql, ' from "taxonomies"')) {
             return;
         }
         $changed = true;

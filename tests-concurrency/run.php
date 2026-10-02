@@ -229,6 +229,11 @@ try {
         }
     }
     echo "4 MySQL slug constraint cases passed.\n";
+    require __DIR__ . '/joined-visibility.php';
+    verifyJoinedVisibility();
+    require __DIR__ . '/import-diagnostics.php';
+    verifyImportedStructure();
+    verifyUnsignedIdentities();
 
 } catch (Throwable $exception) {
     fwrite(STDERR, $exception::class . ': ' . $exception->getMessage() . "\n");

@@ -14,6 +14,7 @@ use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Schemas\TaxonomyTermForm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyIdentity;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -98,7 +99,7 @@ class ManageTaxonomyTerms extends Page
 
     public function getTermTree(): array
     {
-        return app(TaxonomyTreeService::class)->getTree($this->getRecord());
+        return TaxonomyIdentity::browserTree(app(TaxonomyTreeService::class)->getTree($this->getRecord()));
     }
 
     public function editTermAction(): Action
@@ -160,7 +161,7 @@ class ManageTaxonomyTerms extends Page
         }
 
         $id = $this->normalizeTermId($value);
-        $parent = $id === null ? null : $this->getRecord()->terms()->lockForUpdate()->find($id);
+        $parent = $id === null ? null : $this->getRecord()->terms()->lockForUpdate()->find($id, [(new TaxonomyTerm)->qualifyColumn('*')]);
 
         if ($parent === null) {
             throw ValidationException::withMessages([
@@ -183,18 +184,12 @@ class ManageTaxonomyTerms extends Page
             throw (new ModelNotFoundException)->setModel(TaxonomyTerm::class);
         }
 
-        return $query->findOrFail($id);
+        return $query->findOrFail($id, [$query->qualifyColumn('*')]);
     }
 
     private function normalizeTermId(mixed $value): ?int
     {
-        if (! is_int($value) && ! is_string($value)) {
-            return null;
-        }
-
-        $id = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-
-        return $id === false ? null : $id;
+        return TaxonomyIdentity::normalize($value, TaxonomyIdentity::MAX_BROWSER_ID);
     }
 
     public function deleteTermAction(): Action
@@ -231,13 +226,13 @@ class ManageTaxonomyTerms extends Page
     }
 
     public function dropTerm(
-        int $termId,
-        int $targetId,
-        string $placement,
+        mixed $termId,
+        mixed $targetId,
+        mixed $placement,
     ): void {
         $this->resetErrorBag(['placement', 'drop']);
 
-        $position = TaxonomyTermDropPosition::tryFrom($placement);
+        $position = is_string($placement) ? TaxonomyTermDropPosition::tryFrom($placement) : null;
 
         if ($position === null) {
             throw ValidationException::withMessages([
@@ -263,11 +258,17 @@ class ManageTaxonomyTerms extends Page
     }
 
     public function moveTerm(
-        int $termId,
-        int $position,
-        ?int $parentId = null,
+        mixed $termId,
+        mixed $position,
+        mixed $parentId = null,
     ): void {
         $this->resetErrorBag('move');
+        $position = is_int($position) || is_string($position)
+            ? filter_var($position, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]])
+            : false;
+        if ($position === false) {
+            throw ValidationException::withMessages(['move' => 'The term position must be a non-negative integer.']);
+        }
 
         $this->mutateTerms(function (TaxonomyTreeService $service) use ($termId, $position, $parentId): void {
             $term = $this->resolveTerm(['term' => $termId]);
@@ -280,8 +281,8 @@ class ManageTaxonomyTerms extends Page
             } catch (InvalidTaxonomyParentException | InvalidTaxonomyOrderException $exception) {
                 throw ValidationException::withMessages(['move' => $exception->getMessage()]);
             }
-            if ($parentId !== null && $oldParentId !== $parentId) {
-                $this->expandAfterCommit($parentId);
+            if ($parent !== null && $oldParentId !== (int) $parent->getKey()) {
+                $this->expandAfterCommit((int) $parent->getKey());
             }
         });
     }

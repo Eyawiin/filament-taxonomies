@@ -25,6 +25,7 @@
                 aria-haspopup="tree"
                 aria-controls="{{ $getId() }}-tree"
                 x-bind:aria-expanded="open"
+                x-bind:aria-disabled="blocked"
                 x-bind:data-readonly="readOnly"
                 x-bind:disabled="disabled"
                 @disabled($isDisabled())

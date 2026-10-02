@@ -7,6 +7,10 @@ export default function taxonomyParentTree({
     readOnly = false,
     labels = {},
 }) {
+    // Configuration nodes and expansion lists are replaced by this component.
+    // Keep memoization outside Alpine's reactive state to avoid effect loops.
+    let visibility = null
+
     return {
         state,
         nodes,
@@ -97,21 +101,44 @@ export default function taxonomyParentTree({
             )
         },
 
-        get visibleNodes() {
+        get visibility() {
+            const nodes = this.nodes
+            const expanded = this.expanded
             const query = this.search.trim().toLocaleLowerCase()
+            if (
+                visibility?.nodes === nodes &&
+                visibility.expanded === expanded &&
+                visibility.query === query
+            )
+                return visibility
+
+            const ids = new Set()
             if (query) {
-                const visible = new Set()
-                for (const node of this.nodes) {
+                for (const node of nodes) {
                     if (node.name.toLocaleLowerCase().includes(query)) {
-                        visible.add(node.id)
-                        node.ancestors.forEach((id) => visible.add(id))
+                        ids.add(node.id)
+                        node.ancestors.forEach((id) => ids.add(id))
                     }
                 }
-                return this.nodes.filter((node) => visible.has(node.id))
+            } else {
+                const expandedIds = new Set(expanded)
+                for (const node of nodes) {
+                    if (node.ancestors.every((id) => expandedIds.has(id)))
+                        ids.add(node.id)
+                }
             }
-            return this.nodes.filter((node) =>
-                node.ancestors.every((id) => this.expanded.includes(id)),
-            )
+            visibility = {
+                nodes,
+                expanded,
+                query,
+                ids,
+                visible: nodes.filter((node) => ids.has(node.id)),
+            }
+            return visibility
+        },
+
+        get visibleNodes() {
+            return this.visibility.visible
         },
 
         get navigationNodes() {
@@ -128,7 +155,7 @@ export default function taxonomyParentTree({
         },
 
         isVisible(id) {
-            return this.visibleNodes.some((node) => node.id === id)
+            return this.visibility.ids.has(id)
         },
         isExpanded(id) {
             return this.search.trim() !== '' || this.expanded.includes(id)
@@ -275,8 +302,13 @@ export default function taxonomyParentTree({
                 case 'ArrowRight':
                     if (node.hasChildren && !this.isExpanded(node.id))
                         this.toggleNode(node.id)
-                    else if (node.hasChildren)
-                        this.focusNode(visible[index + 1]?.id)
+                    else if (node.hasChildren) {
+                        const child = visible.find(
+                            (candidate) =>
+                                candidate.ancestors.at(-1) === node.id,
+                        )
+                        if (child) this.focusNode(child.id)
+                    }
                     break
                 case 'ArrowLeft':
                     if (

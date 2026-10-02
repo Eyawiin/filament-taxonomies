@@ -9,6 +9,7 @@ use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyOrderException;
 use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyParentException;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyIdentity;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
@@ -22,16 +23,19 @@ class TaxonomyTreeService
      */
     public function getDescendantIds(TaxonomyTerm $term): array
     {
+        $this->assertIdentity($term);
         $descendantIds = [];
         $parentIds = [(int) $term->getKey()];
-        $visitedIds = [];
+        $visitedIds = $parentIds;
 
         while (true) {
-            $children = TaxonomyTerm::query()
-                ->where('taxonomy_id', $term->taxonomy_id)
-                ->whereIn('parent_id', $parentIds)
-                ->pluck('id')
-                ->map(static fn (mixed $id): int => (int) $id)
+            $query = TaxonomyTerm::query();
+            $children = $query
+                ->where($query->qualifyColumn('taxonomy_id'), $term->taxonomy_id)
+                ->whereIn($query->qualifyColumn('parent_id'), $parentIds)
+                ->toBase()->pluck($query->getModel()->getQualifiedKeyName())
+                ->map(static fn (mixed $id): ?int => TaxonomyIdentity::normalize($id))
+                ->filter()
                 ->values()
                 ->all();
 
@@ -39,7 +43,7 @@ class TaxonomyTreeService
                 break;
             }
 
-            $children = array_values(array_diff($children, $visitedIds));
+            $children = array_values(array_unique(array_diff($children, $visitedIds)));
 
             if (empty($children)) {
                 break;
@@ -63,29 +67,98 @@ class TaxonomyTreeService
 
     public function getTree(Taxonomy $taxonomy): array
     {
-        $terms = $taxonomy->terms()
-            ->orderBy('position')
-            ->orderBy('name')
-            ->orderBy('id')
-            ->get();
+        $this->assertIdentity($taxonomy);
+        $query = $taxonomy->terms();
+        $terms = $query
+            ->orderBy($query->qualifyColumn('position'))
+            ->orderBy($query->qualifyColumn('name'))
+            ->orderBy($query->qualifyColumn('id'))
+            ->get([$query->qualifyColumn('*')])
+            ->filter(static fn (TaxonomyTerm $term): bool => TaxonomyIdentity::normalize($term->getRawOriginal($term->getKeyName())) !== null)
+            ->unique('id');
 
-        /** @var array<int, list<TaxonomyTerm>> $childrenByParent */
+        /** @var array<int|string, list<TaxonomyTerm>> $childrenByParent */
         $childrenByParent = [];
 
         foreach ($terms as $term) {
-            $parentId = $term->parent_id ?? 0;
+            $rawParent = $term->getRawOriginal('parent_id');
+            $parentId = $rawParent === null ? 'root' : TaxonomyIdentity::normalize($rawParent);
+            if ($parentId === null) {
+                continue;
+            }
 
             $childrenByParent[$parentId][] = $term;
         }
 
-        return $this->buildTree($childrenByParent, 0);
+        return $this->buildTree($childrenByParent, 'root');
     }
 
     /**
-     * @param  array<int, list<TaxonomyTerm>>  $childrenByParent
+     * Read-only import diagnostics, including scoped-out structural rows.
+     * Callers must authorize access to the entire taxonomy before exposing results.
+     * A reason describes the affected ancestor chain, including descendants of a defect.
+     *
+     * @return list<array{term_id: int|string, reason: 'cycle'|'missing_or_foreign_parent'|'invalid_identity'}>
+     */
+    public function diagnoseTree(Taxonomy $taxonomy): array
+    {
+        $this->assertConnection($taxonomy);
+        $this->assertIdentity($taxonomy);
+        $parents = TaxonomyTerm::withoutGlobalScopes()
+            ->where('taxonomy_id', $taxonomy->getKey())
+            ->orderBy('id')
+            ->toBase()->pluck('parent_id', 'id')->all();
+        $resolved = [];
+
+        foreach ($parents as $id => $parent) {
+            $path = [];
+            $current = $id;
+            $reason = null;
+            while ($current !== null) {
+                if (TaxonomyIdentity::normalize($current) === null) {
+                    $path[$current] = true;
+                    $reason = 'invalid_identity';
+
+                    break;
+                }
+                if (array_key_exists($current, $resolved)) {
+                    $reason = $resolved[$current];
+
+                    break;
+                }
+                if (isset($path[$current])) {
+                    $reason = 'cycle';
+
+                    break;
+                }
+                if (! array_key_exists($current, $parents)) {
+                    $reason = 'missing_or_foreign_parent';
+
+                    break;
+                }
+                $path[$current] = true;
+                $current = $parents[$current];
+            }
+            foreach ($path as $visited => $unused) {
+                $resolved[$visited] = $reason;
+            }
+        }
+
+        $issues = [];
+        foreach ($parents as $id => $parent) {
+            if ($resolved[$id] !== null) {
+                $issues[] = ['term_id' => $id, 'reason' => $resolved[$id]];
+            }
+        }
+
+        return $issues;
+    }
+
+    /**
+     * @param  array<int|string, list<TaxonomyTerm>>  $childrenByParent
      * @return list<array{term: TaxonomyTerm, children: list<mixed>}>
      */
-    private function buildTree(array $childrenByParent, int $parentId): array
+    private function buildTree(array $childrenByParent, int | string $parentId): array
     {
         $tree = [];
 
@@ -106,10 +179,11 @@ class TaxonomyTreeService
         int $taxonomyId,
         ?int $parentId,
     ): int {
-        $maxPosition = TaxonomyTerm::query()
-            ->where('taxonomy_id', $taxonomyId)
-            ->where('parent_id', $parentId)
-            ->max('position');
+        $query = TaxonomyTerm::query();
+        $maxPosition = $query
+            ->where($query->qualifyColumn('taxonomy_id'), $taxonomyId)
+            ->where($query->qualifyColumn('parent_id'), $parentId)
+            ->max($query->qualifyColumn('position'));
 
         if ($maxPosition === null) {
             return 0;
@@ -215,6 +289,7 @@ class TaxonomyTreeService
         $metadata = $this->metadata($term);
         $result = $this->mutate($term, function (Taxonomy $taxonomy) use ($term, $target, $position, $metadata): TaxonomyTerm {
             $taxonomyId = (int) $taxonomy->getKey();
+            $this->assertIdentity($target);
             if ((int) $target->getRawOriginal('taxonomy_id') !== $taxonomyId || $term->getKey() === $target->getKey()) {
                 throw new InvalidTaxonomyDropException('A drop target must be a different term in the same taxonomy.');
             }
@@ -229,7 +304,8 @@ class TaxonomyTreeService
             } else {
                 $parentId = $this->parentId($freshTarget);
                 $parent = $parentId === null ? null : TaxonomyTerm::query()
-                    ->where('taxonomy_id', $taxonomyId)->lockForUpdate()->findOrFail($parentId);
+                    ->where((new TaxonomyTerm)->qualifyColumn('taxonomy_id'), $taxonomyId)
+                    ->lockForUpdate()->findOrFail($parentId, [(new TaxonomyTerm)->qualifyColumn('*')]);
                 $siblings = $this->siblingIds($terms, $parentId, (int) $source->getKey());
                 $index = array_search((int) $freshTarget->getKey(), $siblings, true);
                 if ($index === false) {
@@ -246,7 +322,7 @@ class TaxonomyTreeService
         return $this->synchronize($term, $result);
     }
 
-    /** @param array<array-key, int> $termIds */
+    /** @param array<array-key, mixed> $termIds Positive integer IDs or integer strings, validated before writing. */
     public function reorderSiblings(Taxonomy $taxonomy, ?TaxonomyTerm $parent, array $termIds): void
     {
         $this->mutate($taxonomy, function (Taxonomy $fresh) use ($parent, $termIds): void {
@@ -261,9 +337,19 @@ class TaxonomyTreeService
             }
             $parentId = $destination === null ? null : (int) $destination->getKey();
             $expected = $this->siblingIds($terms, $parentId);
-            $provided = array_values(array_map(static fn (mixed $id): int => (int) $id, $termIds));
-            $visibleQuery = TaxonomyTerm::query()->where('taxonomy_id', $taxonomyId)
-                ->where('parent_id', $parentId)->lockForUpdate();
+            $provided = [];
+            foreach ($termIds as $id) {
+                $normalized = is_int($id) || is_string($id)
+                    ? filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])
+                    : false;
+                if ($normalized === false) {
+                    throw new InvalidTaxonomyOrderException('Sibling IDs must be positive integers.');
+                }
+                $provided[] = $normalized;
+            }
+            $visibleQuery = TaxonomyTerm::query();
+            $visibleQuery->where($visibleQuery->qualifyColumn('taxonomy_id'), $taxonomyId)
+                ->where($visibleQuery->qualifyColumn('parent_id'), $parentId)->lockForUpdate();
             $visible = array_values(array_unique(array_map(
                 static fn (mixed $id): int => (int) $id,
                 $visibleQuery->pluck($visibleQuery->getModel()->getQualifiedKeyName())->all(),
@@ -330,17 +416,24 @@ class TaxonomyTreeService
     private function mutate(Taxonomy | TaxonomyTerm $owner, Closure $operation): mixed
     {
         $this->assertConnection($owner);
-        if (! $owner->exists || $owner->isDirty($owner->getKeyName()) || ($owner instanceof TaxonomyTerm && $owner->isDirty('taxonomy_id'))) {
-            throw new LogicException('Managed writes require a persisted model with an unchanged identity and taxonomy.');
-        }
+        $this->assertIdentity($owner);
         $taxonomyId = $owner instanceof Taxonomy ? (int) $owner->getKey() : (int) $owner->getRawOriginal('taxonomy_id');
 
         // One attempt: replaying callbacks could replay consumer observers or external effects.
         return DB::connection()->transaction(function () use ($taxonomyId, $operation): mixed {
-            $taxonomy = Taxonomy::query()->lockForUpdate()->findOrFail($taxonomyId);
+            $taxonomy = Taxonomy::query()->lockForUpdate()->findOrFail($taxonomyId, [(new Taxonomy)->qualifyColumn('*')]);
 
             return $operation($taxonomy);
         }, 1);
+    }
+
+    private function assertIdentity(Taxonomy | TaxonomyTerm $model): void
+    {
+        $invalidTaxonomy = $model instanceof TaxonomyTerm
+            && (TaxonomyIdentity::normalize($model->getRawOriginal('taxonomy_id')) === null || $model->isDirty('taxonomy_id'));
+        if (! $model->exists || TaxonomyIdentity::normalize($model->getRawOriginal($model->getKeyName())) === null || $model->isDirty($model->getKeyName()) || $invalidTaxonomy) {
+            throw new LogicException('Managed writes require a persisted model with positive, unchanged identity and taxonomy.');
+        }
     }
 
     private function assertConnection(Model $model): void
@@ -356,19 +449,21 @@ class TaxonomyTreeService
     private function resolveTerm(TaxonomyTerm $term, int $taxonomyId, bool $lock = true): TaxonomyTerm
     {
         $this->assertConnection($term);
+        $this->assertIdentity($term);
         if ((int) $term->getRawOriginal('taxonomy_id') !== $taxonomyId) {
             throw new InvalidTaxonomyParentException('The term must belong to the owning taxonomy.');
         }
 
-        $query = TaxonomyTerm::query()->where('taxonomy_id', $taxonomyId);
+        $query = TaxonomyTerm::query();
+        $query->where($query->qualifyColumn('taxonomy_id'), $taxonomyId);
         if ($lock) {
             $query->lockForUpdate();
         }
 
-        return $query->findOrFail($term->getKey());
+        return $query->findOrFail($term->getKey(), [$query->qualifyColumn('*')]);
     }
 
-    /** @return array<int, TaxonomyTerm> */
+    /** @return array<int|string, TaxonomyTerm> */
     private function structure(int $taxonomyId, bool $lock = true): array
     {
         // Structural integrity must include scoped-out ancestors and siblings.
@@ -378,10 +473,10 @@ class TaxonomyTreeService
             $query->lockForUpdate();
         }
 
-        return $query->get()->keyBy('id')->all();
+        return $query->get()->keyBy(static fn (TaxonomyTerm $term): int | string => $term->getRawOriginal($term->getKeyName()))->all();
     }
 
-    /** @param array<int, TaxonomyTerm> $terms
+    /** @param array<int|string, TaxonomyTerm> $terms
      * @return list<int>
      */
     private function ancestors(TaxonomyTerm $term, array $terms): array
@@ -389,7 +484,10 @@ class TaxonomyTreeService
         $visited = [];
         $current = $term;
         while (true) {
-            $id = (int) $current->getKey();
+            $id = TaxonomyIdentity::normalize($current->getRawOriginal($current->getKeyName()));
+            if ($id === null) {
+                throw new InvalidTaxonomyParentException('The affected hierarchy contains an unsupported term identity.');
+            }
             if (in_array($id, $visited, true)) {
                 throw new InvalidTaxonomyParentException('The affected hierarchy contains a cycle.');
             }
@@ -405,7 +503,7 @@ class TaxonomyTreeService
         }
     }
 
-    /** @param array<int, TaxonomyTerm> $terms */
+    /** @param array<int|string, TaxonomyTerm> $terms */
     private function validateParent(TaxonomyTerm $source, ?TaxonomyTerm $parent, array $terms): void
     {
         $this->ancestors($source, $terms);
@@ -414,7 +512,7 @@ class TaxonomyTreeService
         }
     }
 
-    /** @param array<int, TaxonomyTerm> $terms
+    /** @param array<int|string, TaxonomyTerm> $terms
      * @param  array<string, mixed>  $metadata
      */
     private function moveLocked(TaxonomyTerm $source, ?TaxonomyTerm $parent, array $terms, int $position, array $metadata): TaxonomyTerm
@@ -443,17 +541,40 @@ class TaxonomyTreeService
 
     private function parentId(TaxonomyTerm $term): ?int
     {
-        return $term->parent_id === null ? null : (int) $term->parent_id;
+        $raw = $term->getRawOriginal('parent_id');
+        if ($raw === null) {
+            return null;
+        }
+        $id = TaxonomyIdentity::normalize($raw);
+        if ($id === null) {
+            throw new InvalidTaxonomyParentException('The affected hierarchy contains an unsupported parent identity.');
+        }
+
+        return $id;
     }
 
-    /** @param array<int, TaxonomyTerm> $terms
+    /** @param array<int|string, TaxonomyTerm> $terms
      * @return list<int>
      */
     private function siblingIds(array $terms, ?int $parentId, ?int $exclude = null): array
     {
-        $siblings = array_filter($terms, fn (TaxonomyTerm $term): bool => $this->parentId($term) === $parentId && (int) $term->getKey() !== $exclude);
+        $siblings = [];
+        foreach ($terms as $term) {
+            $rawParent = $term->getRawOriginal('parent_id');
+            $storedParent = $rawParent === null ? null : TaxonomyIdentity::normalize($rawParent);
+            if (($rawParent !== null && $storedParent === null) || $storedParent !== $parentId) {
+                continue;
+            }
+            $id = TaxonomyIdentity::normalize($term->getRawOriginal($term->getKeyName()));
+            if ($id === null) {
+                throw new InvalidTaxonomyParentException('The affected sibling group contains an unsupported identity.');
+            }
+            if ($id !== $exclude) {
+                $siblings[] = $id;
+            }
+        }
 
-        return array_values(array_map(static fn (TaxonomyTerm $term): int => (int) $term->getKey(), $siblings));
+        return $siblings;
     }
 
     /** @param list<int> $termIds */
@@ -466,7 +587,7 @@ class TaxonomyTreeService
         }
     }
 
-    /** @param list<int> $termIds */
+    /** @param list<int|string> $termIds */
     private function assertNoForeignChildren(int $taxonomyId, array $termIds): void
     {
         if ($termIds !== [] && TaxonomyTerm::withoutGlobalScopes()->where('taxonomy_id', '!=', $taxonomyId)
@@ -483,16 +604,23 @@ class TaxonomyTreeService
 
     private function save(TaxonomyTerm $term): void
     {
+        $creating = ! $term->exists;
         if (! $term->save()) {
             throw new RuntimeException('The taxonomy term write was cancelled.');
+        }
+        // insertGetId() can clamp unsigned overflow before Eloquent stores the key.
+        if ($creating && (TaxonomyIdentity::normalize($term->getKey()) === null || $term->getKey() >= PHP_INT_MAX)) {
+            throw new RuntimeException('The generated taxonomy term identity exceeds the supported integer range.');
         }
     }
 
     private function reload(TaxonomyTerm $term): TaxonomyTerm
     {
         // refresh() uses a snapshot read, which can be stale in an outer RR transaction.
-        return TaxonomyTerm::query()->where('taxonomy_id', $term->taxonomy_id)
-            ->lockForUpdate()->findOrFail($term->getKey());
+        $query = TaxonomyTerm::query();
+
+        return $query->where($query->qualifyColumn('taxonomy_id'), $term->taxonomy_id)
+            ->lockForUpdate()->findOrFail($term->getKey(), [$query->qualifyColumn('*')]);
     }
 
     private function synchronize(TaxonomyTerm $original, TaxonomyTerm $fresh): TaxonomyTerm

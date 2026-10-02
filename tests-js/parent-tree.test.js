@@ -132,3 +132,63 @@ test('missing selected values are marked unavailable rather than displayed as ro
     tree.state = null
     assert.equal(tree.selectedLabel, 'Root')
 })
+
+test('ArrowRight during search never jumps from a branch to an unrelated matching sibling', () => {
+    const tree = taxonomyParentTree({
+        state: null,
+        nodes: nodes.map((node) =>
+            node.id === 5 ? { ...node, name: 'Country theme' } : node,
+        ),
+    })
+    tree.search = 'country'
+    tree.activeId = 1
+    tree.focusNode = (id) => {
+        tree.activeId = id
+    }
+    tree.navigate({
+        key: 'ArrowRight',
+        preventDefault() {},
+        stopPropagation() {},
+    })
+    assert.equal(tree.activeId, 1)
+})
+
+test('visibility is reused for row lookups and refreshed by search, expansion and configuration', () => {
+    let reads = 0
+    const measured = nodes.map((node) => ({
+        ...node,
+        get name() {
+            reads++
+            return node.name
+        },
+    }))
+    const tree = taxonomyParentTree({ state: null, nodes: measured })
+    tree.search = 'rome'
+    assert.deepEqual(
+        tree.visibleNodes.map((node) => node.id),
+        [1, 2, 3],
+    )
+    for (let index = 0; index < 1000; index++)
+        assert.equal(tree.isVisible(3), true)
+    assert.equal(reads, nodes.length)
+    tree.search = ''
+    tree.toggleNode(1)
+    assert.equal(tree.isVisible(3), false)
+    tree.search = 'renamed'
+    tree.configure({
+        nodes: nodes.map((node) => ({
+            ...node,
+            name: node.id === 3 ? 'Renamed' : node.name,
+        })),
+        disabled: false,
+        readOnly: false,
+    })
+    assert.deepEqual(
+        tree.visibleNodes.map((node) => node.id),
+        [1, 2, 3],
+    )
+    tree.search = ''
+    assert.equal(tree.isVisible(3), false)
+    tree.toggleNode(1)
+    assert.equal(tree.isVisible(3), true)
+})

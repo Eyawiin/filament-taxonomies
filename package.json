@@ -8,7 +8,8 @@
         "build:theme": "vite build",
         "dev:theme": "vite",
         "test:browser": "playwright test",
-        "check:build": "node bin/check-build.js"
+        "check:build": "node bin/check-build.js",
+        "test:performance": "playwright test --config=playwright.performance.config.js"
     },
     "devDependencies": {
         "@atlaskit/pragmatic-drag-and-drop": "^3.1.0",

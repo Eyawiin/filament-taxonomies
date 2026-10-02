@@ -6,6 +6,7 @@ use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyIdentity;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 
@@ -19,22 +20,20 @@ class TaxonomyParentSelect
         ?TaxonomyTerm $term = null,
         string $resource = TaxonomyResource::class,
     ): TaxonomyParentField {
+        abort_if(TaxonomyIdentity::normalize($taxonomy->getRawOriginal($taxonomy->getKeyName())) === null, 404);
+
         /** @var Taxonomy $taxonomy */
         $taxonomy = $resource::getEloquentQuery()->whereKey($taxonomy->getKey())->firstOrFail();
         abort_unless($resource::canAccess() && $resource::canView($taxonomy), 403);
 
         if ($term !== null) {
-            $term = $taxonomy->terms()->findOrFail($term->getKey());
+            abort_if(TaxonomyIdentity::normalize($term->getRawOriginal($term->getKeyName())) === null, 404);
+            $term = $taxonomy->terms()->findOrFail($term->getKey(), [(new TaxonomyTerm)->qualifyColumn('*')]);
         }
 
         $treeService = app(TaxonomyTreeService::class);
-        $disabledIds = $term === null ? [] : [
-            (int) $term->getKey(),
-            ...$treeService->getDescendantIds($term),
-        ];
         $nodes = self::treeNodes(
-            $treeService->getTree($taxonomy),
-            $disabledIds,
+            TaxonomyIdentity::browserTree($treeService->getTree($taxonomy)),
             $term === null ? null : (int) $term->getKey(),
         );
         $availableIds = array_column(array_filter(
@@ -62,13 +61,11 @@ class TaxonomyParentSelect
 
     /**
      * @param  array<array{term: TaxonomyTerm, children: array}>  $nodes
-     * @param  list<int>  $disabledIds
      * @param  list<int>  $ancestors
      * @return list<array{id: int, name: string, ancestors: list<int>, hasChildren: bool, disabled: bool, reason: string}>
      */
     private static function treeNodes(
         array $nodes,
-        array $disabledIds,
         ?int $currentTermId,
         array $ancestors = [],
     ): array {
@@ -76,7 +73,7 @@ class TaxonomyParentSelect
 
         foreach ($nodes as $node) {
             $id = (int) $node['term']->getKey();
-            $disabled = in_array($id, $disabledIds, true);
+            $disabled = $currentTermId !== null && ($id === $currentTermId || in_array($currentTermId, $ancestors, true));
             $options[] = [
                 'id' => $id,
                 'name' => $node['term']->name,
@@ -89,7 +86,6 @@ class TaxonomyParentSelect
             ];
             array_push($options, ...self::treeNodes(
                 $node['children'],
-                $disabledIds,
                 $currentTermId,
                 [...$ancestors, $id],
             ));

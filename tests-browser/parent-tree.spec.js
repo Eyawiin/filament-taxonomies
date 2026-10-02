@@ -76,7 +76,12 @@ test('Livewire updates state, options and disabled/read-only controls without st
     await page.getByText('Toggle disabled', { exact: true }).click()
     await expect(trigger(field)).toBeEnabled()
     await page.getByText('Toggle read only', { exact: true }).click()
-    await trigger(field).click()
+    await expect(trigger(field)).toHaveAttribute('aria-disabled', 'true')
+    await expect(trigger(field)).toHaveJSProperty('disabled', false)
+    await trigger(field).focus()
+    await expect(trigger(field)).toBeFocused()
+    await trigger(field).click({ force: true })
+    await page.keyboard.press('ArrowDown')
     await expect(field.locator('[role=tree]')).toBeHidden()
     await page.getByText('Toggle read only', { exact: true }).click()
     await page.getByText('Rename parent', { exact: true }).click()
@@ -185,4 +190,39 @@ test('action modals remount cleanly after validation and cancellation', async ({
         await page.keyboard.press('Escape')
         await expect(modal).toBeHidden()
     }
+})
+
+test('search ArrowRight stays on a branch when no child matches instead of jumping to another root', async ({
+    page,
+}) => {
+    const field = first(page)
+    await trigger(field).click()
+    await field.locator('input[type=search]').fill('t')
+    await page.keyboard.press('ArrowDown')
+    await expect(item(field, 'root')).toBeFocused()
+    await page.keyboard.press('ArrowDown')
+    await expect(item(field, 1)).toBeFocused()
+    await page.keyboard.press('ArrowDown')
+    await expect(item(field, 2)).toBeFocused()
+    await page.keyboard.press('ArrowRight')
+    await expect(item(field, 2)).toBeFocused()
+})
+
+test('pointer disclosure returns focus to its own tree item before keyboard navigation', async ({
+    page,
+}) => {
+    const field = first(page)
+    await trigger(field).focus()
+    await page.keyboard.press('ArrowDown')
+    await expect(item(field, 2)).toBeFocused()
+    await item(field, 1)
+        .getByRole('button', { name: 'Collapse Country', exact: true })
+        .click()
+    await expect(item(field, 1)).toBeFocused()
+    await expect(item(field, 1)).toHaveAttribute('aria-expanded', 'false')
+    await expect(item(field, 2)).toBeHidden()
+    await page.keyboard.press('ArrowRight')
+    await expect(item(field, 1)).toHaveAttribute('aria-expanded', 'true')
+    await page.keyboard.press('ArrowRight')
+    await expect(item(field, 2)).toBeFocused()
 })

@@ -54,3 +54,6 @@
 /playwright-report      export-ignore
 /test-results           export-ignore
 /stubs                  export-ignore
+
+/tests-performance      export-ignore
+/playwright.performance.config.js export-ignore

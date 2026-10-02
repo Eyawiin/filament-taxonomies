@@ -9,7 +9,8 @@
             $nextNode = $nodes[$nodeIndex + 1] ?? null;
             $hasChildren = $node['children'] !== [];
             $termId = (int) $node['term']->getKey();
-            $canMove = \Eyawiin\FilamentTaxonomies\Authorization\TaxonomyTermAuthorization::update($node['term'])->allowed();
+            $updateAuthorization = \Eyawiin\FilamentTaxonomies\Authorization\TaxonomyTermAuthorization::update($node['term']);
+            $canMove = $updateAuthorization->allowed();
 
             $storageKey = sprintf(
                 'eyawiin-filament-taxonomies:tree:%s:term:%s:expanded',
@@ -148,13 +149,12 @@
                         })"
                     />
 
-                    {{ ($this->editTermAction)([
-                        'term' => $node['term']->getKey(),
-                    ]) }}
+                    {{-- Rendering uses loaded visible records. Mounted actions retain their fresh authorization callbacks. --}}
+                    {{ (($this->editTermAction)(['term' => $termId]))
+                        ->authorize($updateAuthorization) }}
 
-                    {{ ($this->deleteTermAction)([
-                        'term' => $node['term']->getKey(),
-                    ]) }}
+                    {{ (($this->deleteTermAction)(['term' => $termId]))
+                        ->authorize(\Eyawiin\FilamentTaxonomies\Authorization\TaxonomyTermAuthorization::delete($node['term'])) }}
                 </div>
             </div>
 

@@ -30,7 +30,7 @@ class TaxonomiesTable
                     ->sortable(),
 
                 TextColumn::make('terms_count')
-                    ->counts('terms')
+                    ->counts(['terms' => $resource::countDistinctTerms(...)])
                     ->label('Terms'),
             ])
             ->recordActions([

@@ -26,7 +26,7 @@
             <button type="button" tabindex="-1" class="taxonomy-parent-toggle {{ $node['hasChildren'] ? '' : 'is-leaf' }}"
                 @disabled(! $node['hasChildren'])
                 x-bind:aria-label="(isExpanded({{ $node['id'] }}) ? labels.collapse : labels.expand).replace(':name', @js($node['name']))"
-                x-on:click.stop="toggleNode({{ $node['id'] }})">
+                x-on:click.stop="toggleNode({{ $node['id'] }}); focusNode({{ $node['id'] }})">
                 <span x-bind:class="{ 'is-expanded': isExpanded({{ $node['id'] }}) }">›</span>
             </button>
             <span id="{{ $treeId }}-name-{{ $node['id'] }}" class="taxonomy-parent-name">{{ $node['name'] }}</span>

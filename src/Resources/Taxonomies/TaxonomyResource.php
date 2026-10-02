@@ -13,6 +13,8 @@ use Filament\Navigation\NavigationItem;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Expression;
 
 class TaxonomyResource extends Resource
 {
@@ -27,6 +29,22 @@ class TaxonomyResource extends Resource
     protected static string | \UnitEnum | null $navigationGroup = 'Taxonomies';
 
     protected static ?string $slug = 'taxonomies';
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        return $query->addSelect($query->qualifyColumn('*'))
+            ->whereBetween($query->getModel()->getQualifiedKeyName(), [1, PHP_INT_MAX]);
+    }
+
+    /** @internal Aggregate callback shared by navigation and table counts. */
+    public static function countDistinctTerms(Builder $query): Builder
+    {
+        $key = $query->getQuery()->getGrammar()->wrap($query->getModel()->getQualifiedKeyName());
+
+        return $query->select(new Expression("count(distinct {$key})"));
+    }
 
     /**
      * @return array<NavigationItem>
@@ -49,8 +67,10 @@ class TaxonomyResource extends Resource
                 ->url(static::getUrl('index')),
         ];
 
+        $query = static::getEloquentQuery();
         /** @var Taxonomy $taxonomy */
-        foreach (static::getEloquentQuery()->withCount('terms')->orderBy('name')->orderBy('id')->get() as $index => $taxonomy) {
+        foreach ($query->withCount(['terms' => static::countDistinctTerms(...)])->orderBy($query->qualifyColumn('name'))
+            ->orderBy($query->qualifyColumn('id'))->get()->unique('id') as $index => $taxonomy) {
             if (! static::canView($taxonomy)) {
                 continue;
             }

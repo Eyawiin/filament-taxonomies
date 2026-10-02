@@ -2,7 +2,7 @@
 
 Decision date: 2026-10-01. Reviewed source baseline: `5.x`, `2ec2cea`.
 
-This contributor document records F0's decisions and executable reproductions. **F1 implements the management permission and query visibility contract. F2 implements coordinated hierarchy writes, verified on MySQL 8.4/InnoDB. F3 implements scoped slug validation and controlled mutation feedback. F4 implements the internal parent field lifecycle; F5 makes distribution and verification portable. A human screen-reader session and the new remote CI run remain F6 acceptance checks.** The behavior and test status below distinguish completed and pending contracts. The local, gitignored `ROADMAP.md` holds the complete implementation sequence.
+This contributor document records F0's decisions and executable reproductions. **F1 implements the management permission and query visibility contract. F2 implements coordinated hierarchy writes, verified on MySQL 8.4/InnoDB. F3 implements scoped slug validation and controlled mutation feedback. F4 implements the internal parent field lifecycle; F5 makes distribution and verification portable. A human screen-reader session and the new remote CI run remain F6 acceptance checks.** F6 local measurements, import diagnostics, verification and remaining gates are recorded in [F6 acceptance](F6_ACCEPTANCE.md). The behavior and test status below distinguish completed and pending contracts. The local, gitignored `ROADMAP.md` holds the complete implementation sequence.
 
 ## F0 implementation plan
 
@@ -585,3 +585,39 @@ for its local commit. Neither milestone is pushed, as requested. New remote CI
 lanes are configured and locally exercised as described; their GitHub run and
 the actual human screen-reader checklist remain F6 acceptance work. PHP 8.2
 functional lanes were not executed locally. No future assignment API is introduced.
+
+## F6 review phase — 2026-10-02
+
+Completed the user-requested F0–F5 review/fix loops, ending each milestone with
+two consecutive passes without further actionable findings. See
+[the detailed loop ledger and reproductions](F6_REVIEW.md).
+
+F2 now rejects malformed reorder IDs and changed destination identities, and
+descendant queries exclude the source/deduplicate joined rows. F3 validates raw
+Livewire movement arguments before PHP can coerce them; malformed values retain
+controlled responses. F4 horizontal navigation stays within the visible branch
+during search. All fixes have required regressions and the parent bundle is rebuilt.
+
+Main PHP suite: 335 pass; Node: 19 pass; parent browser: eight pass; fresh archive
+consumer CLI/browser and both export formats pass. MySQL: seven concurrency and
+four slug cases pass. PHPStan, Pint, Composer, build and workflow gates pass.
+Changes remain uncommitted/unpushed. Actual screen-reader, new remote CI, and
+F6 measured budgets/raw-import diagnostics remain acceptance work.
+
+### Second F0–F5 review campaign — 2026-10-02
+
+Repeated independent review/fix loops; each milestone ends with two consecutive
+passes without further actionable findings. The detailed second ledger and
+reproductions are in [F6_REVIEW.md](F6_REVIEW.md).
+
+Joined visibility scopes now preserve model identities and labels, qualify route
+keys/read columns, deduplicate tree rows and count distinct visible terms in
+navigation/the table. Resource projections preserve native model aggregates.
+Disclosure clicks return focus to their tree item; read-only parent triggers
+announce their unavailable state while remaining focusable.
+
+Final required PHP: 344 cases / 1376 assertions; Node: 19; parent browser: nine.
+MySQL contention/slug checks and the new joined-scope SQL check pass. Final Git
+and Composer archives and a fresh copied consumer CLI/browser pass. Static,
+formatting, manifest, build and workflow checks pass. Review changes remain
+uncommitted/unpushed. Full F6's remaining acceptance items are unchanged.
