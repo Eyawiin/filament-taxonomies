@@ -3,7 +3,7 @@
 use Eyawiin\FilamentTaxonomies\FilamentTaxonomiesServiceProvider;
 use Illuminate\Support\ServiceProvider;
 
-it('F5 registers the advertised config publish tag with a real source file', function (): void {
+it('registers the advertised config publish tag with a real source file', function (): void {
     $paths = ServiceProvider::pathsToPublish(
         FilamentTaxonomiesServiceProvider::class,
         'filament-taxonomies-config',
@@ -17,6 +17,6 @@ it('F5 registers the advertised config publish tag with a real source file', fun
     }
 });
 
-it('F5 merges package configuration under the documented config key', function (): void {
+it('merges package configuration under the documented config key', function (): void {
     expect(config('filament-taxonomies'))->toBeArray();
 });

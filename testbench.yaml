@@ -1,0 +1,31 @@
+laravel: '@testbench'
+
+providers:
+  - Eyawiin\FilamentTaxonomies\FilamentTaxonomiesServiceProvider
+  - Workbench\App\Providers\WorkbenchServiceProvider
+  - Workbench\App\Providers\Filament\AdminPanelProvider
+
+migrations:
+  - database/migrations
+  - workbench/database/migrations
+
+seeders:
+  - Workbench\Database\Seeders\DatabaseSeeder
+
+workbench:
+  start: '/'
+  install: true
+  health: false
+  discovers:
+    web: true
+    api: true
+    commands: true
+    components: false
+    factories: true
+    views: false
+  build:
+    - asset-publish
+    - create-sqlite-db
+    - migrate
+  assets:
+    - laravel-assets

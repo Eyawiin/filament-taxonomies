@@ -14,11 +14,11 @@ jobs:
     steps:
       # persist-credentials: true is required so `git-auto-commit-action` below
       # can push the CHANGELOG update.
-      # zizmor: ignore[artipacked]
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1; zizmor: ignore[artipacked]
         with:
           ref: main
+          persist-credentials: true
 
       - name: Update Changelog
         uses: stefanzweifel/changelog-updater-action@a938690fad7edf25368f37e43a1ed1b34303eb36 # v1.12.0

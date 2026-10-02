@@ -64,27 +64,27 @@
         "lint": "pint",
         "refactor": "rector",
         "test": "pest",
-        "test:pending": "pest --no-coverage tests/Pending",
         "test:concurrency": "@php tests-concurrency/run.php",
         "test:lint": "pint --test",
         "test:refactor": "rector --dry-run",
         "clear": "@php vendor/bin/testbench package:purge-skeleton --ansi",
-        "prepare": "@php vendor/bin/testbench package:discover --ansi",
+        "prepare": [
+            "@php bin/prepare-workbench.php",
+            "@php vendor/bin/testbench package:discover --ansi"
+        ],
         "build": "@php vendor/bin/testbench workbench:build --ansi",
         "serve": [
             "Composer\\Config::disableProcessTimeout",
             "@build",
             "@php vendor/bin/testbench serve --ansi"
-        ]
+        ],
+        "test:distribution": "@php bin/check-distribution.php"
     },
     "extra": {
         "laravel": {
             "providers": [
                 "Eyawiin\\FilamentTaxonomies\\FilamentTaxonomiesServiceProvider"
-            ],
-            "aliases": {
-                "FilamentTaxonomies": "Eyawiin\\FilamentTaxonomies\\Facades\\FilamentTaxonomies"
-            }
+            ]
         }
     },
     "config": {

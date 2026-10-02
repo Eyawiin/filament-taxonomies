@@ -1,8 +1,8 @@
 # A flexible taxonomy and hierarchical term management plugin for Filament.
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/eyawiin/filament-taxonomies.svg?style=flat-square)](https://packagist.org/packages/eyawiin/filament-taxonomies)
-[![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/eyawiin/filament-taxonomies/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/eyawiin/filament-taxonomies/actions?query=workflow%3Arun-tests+branch%3Amain)
-[![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/eyawiin/filament-taxonomies/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/eyawiin/filament-taxonomies/actions?query=workflow%3A"Fix+PHP+code+styling"+branch%3Amain)
+[![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/eyawiin/filament-taxonomies/tests.yml?branch=5.x&label=tests&style=flat-square)](https://github.com/eyawiin/filament-taxonomies/actions?query=workflow%3Atests+branch%3A5.x)
+[![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/eyawiin/filament-taxonomies/code-style.yml?branch=5.x&label=code%20style&style=flat-square)](https://github.com/eyawiin/filament-taxonomies/actions?query=workflow%3Acode-style+branch%3A5.x)
 [![Total Downloads](https://img.shields.io/packagist/dt/eyawiin/filament-taxonomies.svg?style=flat-square)](https://packagist.org/packages/eyawiin/filament-taxonomies)
 
 
@@ -18,7 +18,7 @@ composer require eyawiin/filament-taxonomies
 ```
 
 > [!IMPORTANT]
-> If you have not set up a custom theme and are using Filament Panels follow the instructions in the [Filament Docs](https://filamentphp.com/docs/4.x/styling/overview#creating-a-custom-theme) first.
+> If you have not set up a custom theme and are using Filament Panels follow the instructions in the [Filament Docs](https://filamentphp.com/docs/5.x/styling/overview#creating-a-custom-theme) first.
 
 After setting up a custom theme add the plugin's views to your theme css file or your app's css file if using the standalone packages.
 
@@ -33,11 +33,24 @@ php artisan vendor:publish --tag="filament-taxonomies-migrations"
 php artisan migrate
 ```
 
-You can publish the config file with:
+Publish the package's compiled JavaScript and CSS after installation and after
+every package update:
+
+```bash
+php artisan filament:assets
+```
+
+The optional reserved config file currently has no settings:
 
 ```bash
 php artisan vendor:publish --tag="filament-taxonomies-config"
 ```
+
+It publishes `config/filament-taxonomies.php` and merges under
+`config('filament-taxonomies')`. Publishing it is not required.
+The interactive `php artisan filament-taxonomies:install` command publishes
+config/migrations and offers to run migrations. It does not install the panel
+plugin or build your theme; follow those steps below.
 
 Optionally, you can publish the views using
 
@@ -104,18 +117,85 @@ by default, without an ownership or tenant schema.
 The tree service remains independent of authentication. Consumers calling it
 directly must authorize their own integration before invoking mutations.
 
-## Testing
+## Compatibility
+
+Filament 5 requires PHP 8.2+, Laravel 11.28+ and Tailwind CSS 4.1+.
+This branch retains Laravel 11 as legacy compatibility; use Laravel 12/13 for
+new projects. [Filament installation requirements](https://filamentphp.com/docs/5.x/introduction/installation)
+
+| Laravel | PHP test lanes | Testbench |
+| --- | --- | --- |
+| 11.28+ | 8.2, 8.3, 8.4 | 9 |
+| 12 | 8.2, 8.3, 8.4 | 10 |
+| 13 | 8.3, 8.4 | 11 |
+
+PHP tests run lowest/stable dependencies on Ubuntu and Windows. These are CI
+lanes, not a claim that every version allowed by Composer has been verified.
+PHP 8.5+ is not in this package's current CI matrix. MySQL 8.4/InnoDB has a
+focused contention/constraint lane; SQLite is the functional test backend.
+Managed writes require one default database connection and cooperating service
+writers; other engines and raw writes have no concurrency guarantee here.
+
+## Development and testing
+
+Use PHP/Composer and Node 24. From a clean checkout:
 
 ```bash
-composer test
+composer install
+npm ci
 npm run test:js
+npm run check:build
+composer test -- --no-coverage
+composer analyse
+composer test:lint
 ```
 
-Foundation contracts and executable pending regressions are documented in
-[the contributor foundation guide](.github/FOUNDATION.md). Run `composer test:pending`
-and `npm run test:js:pending` explicitly to reproduce unfinished milestone requirements;
-these currently fail and are separate from required CI. Promote each regression into
-the required suite with its implementation.
+Compiled package assets are committed. After changing JavaScript, run
+`npm run build` and commit its output. `npm run check:build` compares all
+bundles byte for byte using locked dependencies.
+
+The committed `testbench.yaml` defines workbench setup. `composer prepare`
+generates ignored `workbench/storage` directories without symlinks. Workbench
+builds run migrations rather than wiping existing data. Build and serve:
+
+```bash
+npm run build:theme
+composer serve
+```
+
+Focused browser and fresh-consumer verification:
+
+```bash
+npx playwright install --with-deps chromium
+npm run build:theme
+npm run test:browser
+composer test:distribution
+```
+
+The browser fixture uses `build/browser.sqlite` and port 8011. Distribution
+verification creates a fresh Laravel app from the archive in ignored `build/`,
+checks config/migrations/views/assets, exercises CRUD/parenting/movement/policy,
+and tests repeated native dragging on port 8012. It requires Composer network
+access, Node, Chromium and PHP ZipArchive. Both ports must be free.
+[Browser verification and human screen-reader checklist](tests-browser/README.md).
+
+For independent-process MySQL 8.4 verification, see
+[the concurrency runner](tests-concurrency/README.md). `composer test:concurrency`
+requires an explicitly configured disposable MySQL server and fails if it is
+unavailable. It never silently skips the database gate.
+
+Formatting CI runs `pint --test` without committing or pushing changes.
+All F0 pending specifications have been promoted into required suites.
+
+## Upgrade notes for the foundation cleanup
+
+The unused `filament-taxonomies` scaffold command, empty `FilamentTaxonomies`
+facade/alias and empty testing mixin have been removed. They implemented no
+operations. Use `filament-taxonomies:install` for publishing and
+`TaxonomyTreeService` for the documented hierarchy operations.
+The internal parent factory now returns a dedicated Field, so undocumented
+Select-specific chaining is not supported. Published parent views must be
+updated for the nested field template and the new `parent-tree-branch` partial.
 
 ## Changelog
 

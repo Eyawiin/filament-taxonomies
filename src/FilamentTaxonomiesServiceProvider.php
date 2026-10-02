@@ -2,15 +2,10 @@
 
 namespace Eyawiin\FilamentTaxonomies;
 
-use Eyawiin\FilamentTaxonomies\Commands\FilamentTaxonomiesCommand;
-use Eyawiin\FilamentTaxonomies\Testing\TestsFilamentTaxonomies;
 use Filament\Support\Assets\AlpineComponent;
 use Filament\Support\Assets\Asset;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
-use Filament\Support\Facades\FilamentIcon;
-use Illuminate\Filesystem\Filesystem;
-use Livewire\Features\SupportTesting\Testable;
 use Spatie\LaravelPackageTools\Commands\InstallCommand;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
@@ -31,20 +26,13 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
         $package
             ->name(static::$name)
             ->hasViews(static::$viewNamespace)
-            ->hasCommands($this->getCommands())
+            ->hasConfigFile()
             ->hasInstallCommand(function (InstallCommand $command): void {
                 $command
                     ->publishConfigFile()
                     ->publishMigrations()
-                    ->askToRunMigrations()
-                    ->askToStarRepoOnGitHub('eyawiin/filament-taxonomies');
+                    ->askToRunMigrations();
             });
-
-        $configFileName = $package->shortName();
-
-        if (file_exists($package->basePath("/../config/{$configFileName}.php"))) {
-            $package->hasConfigFile();
-        }
 
         if (file_exists($package->basePath('/../database/migrations'))) {
             $package->hasMigrations($this->getMigrations());
@@ -55,11 +43,6 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
         }
     }
 
-    public function packageRegistered(): void
-    {
-        //
-    }
-
     public function packageBooted(): void
     {
         FilamentAsset::register(
@@ -67,24 +50,6 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
             $this->getAssetPackageName(),
         );
 
-        FilamentAsset::registerScriptData(
-            $this->getScriptData(),
-            $this->getAssetPackageName(),
-        );
-
-        FilamentIcon::register($this->getIcons());
-
-        if (app()->runningInConsole()) {
-            foreach (app(Filesystem::class)->files(__DIR__ . '/../stubs/') as $file) {
-                $this->publishes([
-                    $file->getRealPath() => base_path(
-                        "stubs/filament-taxonomies/{$file->getFilename()}",
-                    ),
-                ], 'filament-taxonomies-stubs');
-            }
-        }
-
-        Testable::mixin(new TestsFilamentTaxonomies);
     }
 
     protected function getAssetPackageName(): ?string
@@ -108,40 +73,6 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
                 __DIR__ . '/../resources/dist/components/taxonomy-tree.js',
             ),
         ];
-    }
-
-    /**
-     * @return array<class-string>
-     */
-    protected function getCommands(): array
-    {
-        return [
-            FilamentTaxonomiesCommand::class,
-        ];
-    }
-
-    /**
-     * @return array<string>
-     */
-    protected function getIcons(): array
-    {
-        return [];
-    }
-
-    /**
-     * @return array<string>
-     */
-    protected function getRoutes(): array
-    {
-        return [];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    protected function getScriptData(): array
-    {
-        return [];
     }
 
     /**

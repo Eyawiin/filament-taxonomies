@@ -16,6 +16,8 @@ class WorkbenchServiceProvider extends ServiceProvider
             return;
         }
 
+        $this->app->useStoragePath(dirname(__DIR__, 2) . '/storage');
+
         $config = $this->app->make(Repository::class);
 
         $config->set([

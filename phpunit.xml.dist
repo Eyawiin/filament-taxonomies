@@ -18,8 +18,6 @@
     <testsuites>
         <testsuite name="Eyawiin Test Suite">
             <directory>tests</directory>
-            <!-- Executable future contracts; run explicitly with composer test:pending. -->
-            <exclude>tests/Pending</exclude>
         </testsuite>
     </testsuites>
     <coverage>

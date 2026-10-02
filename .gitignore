@@ -9,7 +9,10 @@ docs
 node_modules
 phpunit.xml
 phpstan.neon
-testbench.yaml
 vendor
 PROJECT_CONTEXT.md
 /ROADMAP.md
+
+/workbench/storage
+/playwright-report/
+/test-results/

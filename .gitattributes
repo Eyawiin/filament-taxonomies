@@ -7,7 +7,7 @@
 /.gitignore             export-ignore
 /.idea                  export-ignore
 /.prettierrc            export-ignore
-/.package-lock.json     export-ignore
+/package-lock.json     export-ignore
 /.editorconfig          export-ignore
 /.php_cs.dist.php       export-ignore
 /.vscode                export-ignore
@@ -26,3 +26,31 @@
 /tailwind.config.js     export-ignore
 /testbench.yaml         export-ignore
 /UPGRADING.md           export-ignore
+
+/tests-js               export-ignore
+/tests-browser          export-ignore
+/tests-concurrency      export-ignore
+/workbench              export-ignore
+/bin                    export-ignore
+/playwright.config.js   export-ignore
+/vite.config.js         export-ignore
+/rector.php             export-ignore
+/composer.lock          export-ignore
+/PROJECT_CONTEXT.md     export-ignore
+/ROADMAP.md             export-ignore
+
+/tests-distribution     export-ignore
+/playwright.consumer.config.js export-ignore
+/.npmrc                 export-ignore
+/resources/css/filament export-ignore
+
+# Composer archive also walks untracked local files.
+/build                  export-ignore
+/vendor                 export-ignore
+/node_modules           export-ignore
+/.phpunit.cache         export-ignore
+/.phpunit.result.cache  export-ignore
+/coverage               export-ignore
+/playwright-report      export-ignore
+/test-results           export-ignore
+/stubs                  export-ignore

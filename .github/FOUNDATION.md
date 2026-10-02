@@ -2,7 +2,7 @@
 
 Decision date: 2026-10-01. Reviewed source baseline: `5.x`, `2ec2cea`.
 
-This contributor document records F0's decisions and executable reproductions. **F1 implements the management permission and query visibility contract. F2 implements coordinated hierarchy writes, verified on MySQL 8.4/InnoDB. F3 implements scoped slug validation and controlled mutation feedback. Field accessibility and distribution requirements remain for later milestones.** The behavior and test status below distinguish completed and pending contracts. The local, gitignored `ROADMAP.md` holds the complete implementation sequence.
+This contributor document records F0's decisions and executable reproductions. **F1 implements the management permission and query visibility contract. F2 implements coordinated hierarchy writes, verified on MySQL 8.4/InnoDB. F3 implements scoped slug validation and controlled mutation feedback. F4 implements the internal parent field lifecycle; F5 makes distribution and verification portable. A human screen-reader session and the new remote CI run remain F6 acceptance checks.** The behavior and test status below distinguish completed and pending contracts. The local, gitignored `ROADMAP.md` holds the complete implementation sequence.
 
 ## F0 implementation plan
 
@@ -18,11 +18,11 @@ This contributor document records F0's decisions and executable reproductions. *
 
 | Framework | Upstream PHP range | Package CI configuration |
 | --- | --- | --- |
-| Laravel 11 | 8.2–8.4 | PHP 8.3/8.4, Testbench 9 |
-| Laravel 12 | 8.2–8.5 | PHP 8.3/8.4, Testbench 10 |
+| Laravel 11 | 8.2–8.4 | PHP 8.2/8.3/8.4, Testbench 9 |
+| Laravel 12 | 8.2–8.5 | PHP 8.2/8.3/8.4, Testbench 10 |
 | Laravel 13 | 8.3–8.5 | PHP 8.3/8.4, Testbench 11 |
 
-The configured PHP matrix runs lowest/stable dependencies on Ubuntu/Windows; static analysis uses stable dependencies. Configuration is not proof that the latest external run passed. PHP 8.2 and 8.5 are outside the current package CI matrix. Solver acceptance and upstream compatibility do not establish package verification. F5 will reconcile the declared range and tested support without casually breaking current consumers.
+The configured PHP matrix runs lowest/stable dependencies on Ubuntu/Windows; static analysis uses stable dependencies. Configuration is not proof that the latest external run passed. PHP 8.2 is configured for Laravel 11/12; PHP 8.5 is outside the current package CI matrix. Solver acceptance and upstream compatibility do not establish package verification. F5 retains the declared range and adds valid PHP 8.2 lanes; the new remote jobs remain unexecuted until push.
 
 Laravel 11 reached upstream security end of life on 2026-03-12. Retain its existing compatibility lane during the foundation pass; document it as legacy compatibility. Use maintained Laravel 12/13 for new consumer examples. Any removal needs explicit upgrade/versioning treatment. [Laravel's support table](https://laravel.com/framework/docs/13.x/releases#support-policy) supports these upstream ranges and dates.
 
@@ -100,22 +100,22 @@ Navigation, page resolution, options, and mutation lookup must honor the same vi
 - Taxonomy slug uniqueness is global; term slug uniqueness is within a taxonomy. Exclude the current record on edit. Keep database uniqueness authoritative. An unchanged slug and the same term slug in another taxonomy remain valid.
 - Do not introduce restrictive slug formatting. Expected uniqueness/parent mistakes belong on the relevant field/action; infrastructure failures must not be swallowed.
 - Root/no-parent is an explicit clear choice. The target keyboard traversal includes it before term choices: Home then Enter clears the parent. Search, branch expansion, and disabled nodes must not make clearing pointer-only.
-- The current keyboard reproduction exercises the existing navigation model and real focus helper with minimal scheduling/focus stubs. It does **not** prove real DOM or assistive-technology behavior. Manual reproduction: open an edit form with a parent selected, open the selector, try to reach No parent from search with Tab; the current ancestor handler closes the popup. F4 must test real focus and correct Tab handling.
-- Keep the advertised `filament-taxonomies-config` tag. Canonical file/key: `config/filament-taxonomies.php` / `filament-taxonomies`, matching provider/package naming. F5 must align the existing differently named source, merging, publishing, and README together.
-- Config tests prove the booted provider's missing registration/merge. They do not replace a fresh Composer consumer installation. The tracked absolute `workbench/storage` link remains a documented F5 portability task.
+- The F4 keyboard reproduction is promoted into required Node tests. Real Chromium tests additionally verify focus, root clearing and Tab behavior. Actual assistive-technology verification remains an F6 acceptance gate.
+- Keep the advertised `filament-taxonomies-config` tag. Canonical file/key: `config/filament-taxonomies.php` / `filament-taxonomies`, matching provider/package naming. F5 aligns the source, merging, publishing and README.
+- Required config tests and a fresh copied-archive consumer prove registration, merging and publishing. Workbench storage is generated as ordinary ignored directories.
 
 ## Executable reproductions
 
-Required passing tests live in `tests/Feature` and `tests-js/*.test.js`. Pending future contracts live in `tests/Pending` and `tests-js/pending`; they assert the desired behavior and deliberately fail today. They have no skipped tests, inverted bug assertions, or expected-failure flags. The PHPUnit default suite explicitly excludes only `tests/Pending`; an explicit path runs them.
+Required passing tests live in `tests/Feature`, `tests-js/*.test.js` and the focused browser harnesses. All F0 specifications have been promoted; the pending directories/scripts and PHPUnit exclusion have been removed. Historical evidence below preserves their original failures.
 
 ```bash
 # Required PHP suite; --no-coverage avoids needing an enabled coverage driver.
 composer test -- --no-coverage --ci
 npm run test:js
 
-# Pending specifications: nonzero exit is expected until their owner milestone is implemented.
-composer test:pending
-npm run test:js:pending
+# Focused browser and clean-consumer gates (see setup in README).
+npm run test:browser
+composer test:distribution
 
 # Required F3 form validation regressions.
 vendor/bin/pest --no-coverage tests/Feature/Resources/Taxonomies/SlugValidationTest.php
@@ -133,10 +133,10 @@ composer test:concurrency
 | F1 — implemented | `tests-js/term-movement-permissions.test.js` | 3 | Drag capability changes, read-only destinations, and revocation before submission pass |
 | F2 — implemented | `tests/Feature/Resources/Taxonomies/HierarchyOrderingTest.php` | 4 | Service/edit source normalization and root/nested promotion order pass |
 | F3 — implemented locally | `tests/Feature/Resources/Taxonomies/*ValidationTest.php` and focused conflict/feedback groups | 70 | Scoped uniqueness, edit exemptions, stale parents, retries, action identities, and expected errors pass |
-| F4 | `tests-js/pending/parent-tree.test.js` | 1 | Home/Enter selects the first term instead of clearing |
-| F5 | `tests/Pending/ConfigPublishingTest.php` | 2 | Publish registry is empty; config key is absent |
+| F4 — implemented | `tests-js/parent-tree-root.test.js` | 1 | Home/Enter clears the parent; real browser focus also passes |
+| F5 — implemented | `tests/Feature/ConfigPublishingTest.php` | 2 | Publish registry and merged config pass; fresh consumer verified |
 
-When fixing a milestone, move its PHP tests into the relevant `tests/Feature/Services`, `Resources`, or installation group; move JS tests into `tests-js/*.test.js`. Keep or expand the assertions, run them in required CI, and update this table. The pending directory is temporary executable planning, not a place to leave unresolved requirements after a milestone is called complete. Avoid using `vendor/bin/pest tests` as a passing-gate command: that explicit directory includes pending tests.
+Future reproductions should be promoted with their owning fix and run in required CI. Keep tests behavior-focused; do not hide unresolved requirements using skipped tests or expected-failure assertions.
 
 ## F0 verification (historical baseline)
 
@@ -496,3 +496,92 @@ Automated accessibility checks are not claimed as that evidence. The concrete
 human acceptance checklist is in tests-browser/README.md and remains required
 for F6 acceptance. F4 implementation/review is complete, with that manual
 accessibility gate outstanding. F5 begins next. Both commits stay local per user.
+
+## F5 implementation and review — 2026-10-02
+
+### Reviewed plan and decisions
+
+Align the existing config/provider/publish tag; retain an optional empty reserved
+config without invented settings. Generate ordinary ignored workbench storage
+before discovery and commit the portable Testbench definition. Preserve existing
+workbench data by running migrations rather than rebuilding the database.
+Remove nonfunctional scaffold surfaces and document the compatibility effects.
+
+Export runtime files and verify a real copied archive in a fresh Laravel consumer.
+Keep compiled assets committed; compare rebuilt bytes from locked Node dependencies.
+Add focused browser/consumer and MySQL lanes alongside the PHP matrix, including
+PHP 8.2 with Laravel 11/12. Use read-only formatting checks. Improve touched node
+shape types and remove the empty PHPStan baseline.
+
+Critical plan review kept browser tools development-only, the internal parent
+field separate from future assignment APIs, and database fixtures disposable.
+Every database/browser gate must fail when unavailable or broken; no silent skips
+or zero-status smoke failures. Verification uses published assets and the installed
+archive, not a symlink to the source checkout.
+
+### Changes
+
+- Canonical config/filament-taxonomies.php is registered, merged and publishable.
+  The installer publishes config/migrations and offers migration execution.
+  Both F0 config specifications are required; no pending foundation tests remain.
+- Ordinary workbench/storage directories are generated and ignored. The tracked
+  absolute symlink is removed. Committed testbench.yaml runs migrations without
+  db-wipe/migrate-fresh and uses the workbench storage path.
+- Removed the fake command, empty facade target/alias and empty testing mixin.
+  Runtime migrations/views/translations/CSS/compiled JavaScript ship; test harnesses,
+  workbench, local documents, Node tooling and development scripts are export-ignored.
+- Added byte-reproducible bundle, Node, real parent-field browser, fresh consumer
+  and MySQL workflows. PHP tests configure 32 valid combinations; PHPStan retains
+  six stable PHP 8.3/8.4 lanes. Formatting cannot commit/push changes.
+- Documentation records actual configuration, support lanes, Filament 5 theme
+  sources, asset publication after updates and removed scaffold behavior.
+
+### Review findings corrected
+
+The fresh-consumer harness used an incorrect drop-position enum argument and
+placed the Vite manifest under a duplicated public path. Both were corrected.
+An uncaught smoke error could be printed by Laravel's handler while returning
+status zero; the entire smoke run now catches Throwable and explicitly exits one.
+Browser assertions now follow the actual movement permission contract and native
+alertdialog deletion semantics. Repeated mouse-driven movement is verified after
+Livewire rerenders.
+
+Final Composer archive inspection found ignored local build/dependency/cache files
+were still exported. Explicit export-ignore rules now exclude those paths and the
+distribution gate checks both Git and Composer archives before consumer installation.
+
+Workflow review corrected stale badge destinations, uploads both browser trace
+directories, removed a nonexistent PHP 8.2 exclusion from the PHPStan matrix, and
+made the existing release changelog workflow's required credential persistence
+explicit with its scoped security-audit annotation. Its release behavior is retained.
+
+### Local verification
+
+- Current PHP 8.3.33 / Laravel 13.33.0 / Filament 5.8.4 / Livewire 4.4.6:
+  **288 required tests / 1210 assertions pass**.
+- Node 24.21.0: **18 tests pass**; all three committed bundles reproduce byte for byte.
+- Chromium: **seven parent-field browser tests pass** after provider cleanup.
+- Both Git and Composer archives pass runtime-content/exclusion inspection. The
+  Composer archive contains 52 entries, excluding populated build/vendor/Node/cache
+  directories. The strengthened distribution gate and fresh-consumer browser pass.
+- Staged archive creates a fresh Laravel 13.34.0 / Filament 5.9.0 / Livewire 4.4.7
+  consumer with copied package contents. The real installer/publish tags, migration,
+  config, CSS and both Alpine assets work. CLI managed create/reparent/reorder/delete
+  promotion and taxonomy CRUD/policies pass. The native browser scenario passes
+  term create/edit/delete, parent selection, denied controls and two drags separated
+  by Livewire updates.
+- Fresh Ubuntu checkout Composer install/discovery and config regressions pass.
+  Native Windows PHP 8.3.35 storage preparation passes against a fresh checkout.
+  This is not a claim of a full native Windows dependency/test run.
+- MySQL 8.4.11/InnoDB/REPEATABLE READ: **seven independent-process concurrency
+  scenarios and four actual slug constraint cases pass**; six real lock waits.
+  The task's temporary MySQL container was removed.
+- PHPStan level 4, Pint (94 files), strict Composer validation, workflow actionlint
+  1.7.12 and offline zizmor 1.30.1 pass. Zizmor retains existing scoped suppressions.
+  No unreviewed new workflow finding remains.
+
+F4 is locally committed in 8e2e44f. F5 implementation/review is complete and ready
+for its local commit. Neither milestone is pushed, as requested. New remote CI
+lanes are configured and locally exercised as described; their GitHub run and
+the actual human screen-reader checklist remain F6 acceptance work. PHP 8.2
+functional lanes were not executed locally. No future assignment API is introduced.
