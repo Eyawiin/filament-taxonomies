@@ -160,3 +160,25 @@
     outline-offset: -1px;
     border-radius: 0.25rem;
 }
+
+.taxonomy-parent-item:focus-visible {
+    outline: none;
+}
+.taxonomy-parent-item:focus-visible > .taxonomy-parent-node {
+    outline: 2px solid var(--primary-500, #6366f1);
+    outline-offset: -2px;
+}
+.taxonomy-parent-item[aria-selected='true'] > .taxonomy-parent-node {
+    font-weight: 600;
+}
+.taxonomy-parent-options { flex: 1; }
+.taxonomy-parent-trigger:disabled,
+.taxonomy-parent-trigger[data-readonly='true'] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+[dir='rtl'] .taxonomy-parent-toggle span { transform: rotate(180deg); }
+[dir='rtl'] .taxonomy-parent-toggle span.is-expanded { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) {
+    .taxonomy-parent-toggle span { transition: none; }
+}

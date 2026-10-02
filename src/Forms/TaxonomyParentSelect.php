@@ -6,7 +6,7 @@ use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
-use Filament\Forms\Components\Select;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 
 class TaxonomyParentSelect
@@ -18,7 +18,7 @@ class TaxonomyParentSelect
         Taxonomy $taxonomy,
         ?TaxonomyTerm $term = null,
         string $resource = TaxonomyResource::class,
-    ): Select {
+    ): TaxonomyParentField {
         /** @var Taxonomy $taxonomy */
         $taxonomy = $resource::getEloquentQuery()->whereKey($taxonomy->getKey())->firstOrFail();
         abort_unless($resource::canAccess() && $resource::canView($taxonomy), 403);
@@ -37,23 +37,17 @@ class TaxonomyParentSelect
             $disabledIds,
             $term === null ? null : (int) $term->getKey(),
         );
-        $options = array_column($nodes, 'name', 'id');
+        $availableIds = array_column(array_filter(
+            $nodes,
+            static fn (array $node): bool => ! $node['disabled'],
+        ), 'id');
 
-        return Select::make('parent_id')
-            ->label('Parent')
+        return TaxonomyParentField::make('parent_id')
+            ->label(__('filament-taxonomies::parent-tree.parent'))
             ->stateCast(new TaxonomyParentIdCast)
-            ->view('filament-taxonomies::forms.parent-tree-select')
-            ->viewData(['nodes' => $nodes])
-            ->options($options)
-            ->disableOptionWhen(
-                static fn ($value): bool => in_array((int) $value, $disabledIds, true),
-            )
-            ->optionsLimit(max(50, count($options)))
-            ->searchable()
-            ->native(false)
+            ->nodes($nodes)
             ->nullable()
-            ->rules(['integer', 'min:1'])
-            ->placeholder('No parent (root term)')
+            ->rules(['integer', 'min:1', Rule::in($availableIds)])
             ->exists(
                 table: TaxonomyTerm::class,
                 column: 'id',
@@ -90,8 +84,8 @@ class TaxonomyParentSelect
                 'hasChildren' => $node['children'] !== [],
                 'disabled' => $disabled,
                 'reason' => $id === $currentTermId
-                    ? 'Current term'
-                    : ($disabled ? 'Would create a cycle' : ''),
+                    ? __('filament-taxonomies::parent-tree.current')
+                    : ($disabled ? __('filament-taxonomies::parent-tree.cycle') : ''),
             ];
             array_push($options, ...self::treeNodes(
                 $node['children'],

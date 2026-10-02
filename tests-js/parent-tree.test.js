@@ -77,6 +77,7 @@ test('keyboard navigation expands branches, traverses nodes and rejects disabled
     tree.$refs = { trigger: { focus() {} } }
     const key = (key) =>
         tree.navigate({ key, preventDefault() {}, stopPropagation() {} })
+    tree.activeId = 1
     key('ArrowLeft')
     assert.deepEqual(
         tree.visibleNodes.map((node) => node.id),
@@ -90,4 +91,44 @@ test('keyboard navigation expands branches, traverses nodes and rejects disabled
     key('End')
     key('Enter')
     assert.equal(tree.state, 5)
+})
+
+test('whole disabled and read-only fields reject selection and expansion', () => {
+    for (const mode of ['disabled', 'readOnly']) {
+        const tree = taxonomyParentTree({ state: 1, nodes, [mode]: true })
+        tree.choose(null)
+        tree.choose(4)
+        tree.toggleNode(1)
+        tree.show()
+        assert.equal(tree.state, 1)
+        assert.equal(tree.open, false)
+        assert.equal(tree.expanded.includes(1), true)
+    }
+})
+
+test('collapsing an active descendant and replacing options recover a visible root or parent', () => {
+    const tree = taxonomyParentTree({ state: 4, nodes })
+    tree.activeId = 3
+    tree.toggleNode(1)
+    assert.equal(tree.activeId, 1)
+    tree.activeId = 5
+    tree.configure({
+        nodes: nodes.slice(0, 4),
+        disabled: false,
+        readOnly: false,
+        labels: {},
+    })
+    assert.equal(tree.activeId, null)
+    assert.equal(tree.selectedLabel, 'France')
+})
+
+test('missing selected values are marked unavailable rather than displayed as root', () => {
+    const tree = taxonomyParentTree({
+        state: 999,
+        nodes,
+        labels: { unavailable: 'Unavailable', root: 'Root' },
+    })
+    assert.equal(tree.selectedLabel, 'Unavailable')
+    tree.state = null
+    assert.equal(tree.selectedLabel, 'Root')
 })

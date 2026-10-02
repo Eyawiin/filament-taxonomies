@@ -456,3 +456,43 @@ Final review gates:
 - F3 review is complete and local gates pass. Following the user's established
   milestone procedure, proceed to commit/push on 5.x. Remote CI for that revision
   is a separate verification result to record after pushing.
+
+
+## F4 implementation and review — 2026-10-02
+
+The internal parent selector now uses TaxonomyParentField (native Field lifecycle),
+not Select. TaxonomyParentSelect remains the scoped factory; nullable integer,
+scoped membership and unavailable self/descendant validation remain required.
+This is an internal parent-only API, not the future assignment field.
+
+Root participates in tree keyboard navigation. Opening exposes the current
+selection; focus and selection remain independent. Search/collapse recover visible
+focus; unavailable branches can be traversed and expanded. Whole disabled and
+read-only controls cannot select/expand. Reactive configuration is read from a
+morphed data attribute; listeners/observer are disposed on Alpine destruction.
+Nested groups and sibling metadata expose hierarchy; unavailable nodes have
+reasons and no aria-selected. Labels are escaped, translated per key with fallback,
+and missing selections are described as unavailable rather than root.
+Popup height/direction adapts to available space, with logical RTL indentation,
+dark colors and reduced motion. Escape is intercepted only while the popup is open.
+
+Review corrected per-key translation fallback, closed-popup Escape swallowing
+the enclosing modal's Escape, and focus left inside a reactively blocked popup.
+Fixture startup initially inherited normal workbench providers: two identified
+task-created records (taxonomy 6, term 18; 05:54:55 timestamps) were removed after
+read-only identity verification. The final fixture excludes workbench providers
+and refuses any database except build/browser.sqlite.
+
+Verification: full pre-final PHP suite 285/1200 passed; the additional translated
+Field regression passes (5 parent-field cases / 34 assertions). Node: 18 pass,
+including the promoted F0/F4 root regression. Chromium: seven real Filament/
+Livewire cases, including two fields/repeater, reactive updates, validation,
+modal remounts, keyboard clearing, unavailable states, escaped labels and narrow
+RTL/dark layout. Axe and accessibility snapshots check hierarchy semantics.
+PHPStan level 4, Pint and whitespace checks pass; compiled asset rebuilt.
+
+Limit: no actual NVDA/VoiceOver session is available in this execution environment.
+Automated accessibility checks are not claimed as that evidence. The concrete
+human acceptance checklist is in tests-browser/README.md and remains required
+for F6 acceptance. F4 implementation/review is complete, with that manual
+accessibility gate outstanding. F5 begins next. Both commits stay local per user.

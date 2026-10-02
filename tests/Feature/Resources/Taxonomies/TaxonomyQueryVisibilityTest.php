@@ -77,7 +77,7 @@ it('honors term global scopes in tree labels, navigation counts, and parent opti
     Livewire::test(ManageTaxonomyTerms::class, ['record' => $taxonomy->id])
         ->assertSee($visible->name)->assertDontSee($hidden->name);
 
-    expect(TaxonomyParentSelect::make($taxonomy)->getOptions())->toBe([$visible->id => $visible->name])
+    expect(array_column(TaxonomyParentSelect::make($taxonomy)->getNodes(), 'name', 'id'))->toBe([$visible->id => $visible->name])
         ->and(TaxonomyResource::getNavigationItems()[1]->getBadge())->toBe('1');
 });
 

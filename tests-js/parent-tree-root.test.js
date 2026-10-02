@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import taxonomyParentTree from '../../resources/js/components/taxonomy-parent-tree.js'
+import taxonomyParentTree from '../resources/js/components/taxonomy-parent-tree.js'
 
 test('F4 Home then Enter can clear the parent through keyboard navigation', () => {
     const tree = taxonomyParentTree({

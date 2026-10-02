@@ -3,14 +3,16 @@
     "type": "module",
     "scripts": {
         "test:js": "node --test tests-js/*.test.js",
-        "test:js:pending": "node --test tests-js/pending/*.test.js",
         "dev": "node bin/build.js --dev",
         "build": "node bin/build.js",
         "build:theme": "vite build",
-        "dev:theme": "vite"
+        "dev:theme": "vite",
+        "test:browser": "playwright test"
     },
     "devDependencies": {
         "@atlaskit/pragmatic-drag-and-drop": "^3.1.0",
+        "@axe-core/playwright": "^4.13.0",
+        "@playwright/test": "^1.63.0",
         "@tailwindcss/vite": "^4.3.3",
         "esbuild": "^0.28.0",
         "laravel-vite-plugin": "^3.2.0",

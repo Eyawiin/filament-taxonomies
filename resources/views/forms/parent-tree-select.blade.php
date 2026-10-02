@@ -1,3 +1,7 @@
+@php
+    $configuration = $getTreeConfiguration();
+    $nodes = $configuration['nodes'];
+@endphp
 <x-dynamic-component :component="$getFieldWrapperView()" :field="$field">
     <div
         class="taxonomy-parent-tree"
@@ -5,12 +9,13 @@
         x-load-src="{{ \Filament\Support\Facades\FilamentAsset::getAlpineComponentSrc('taxonomy-parent-tree', package: 'eyawiin/filament-taxonomies') }}"
         x-data="taxonomyParentTree({
             state: $wire.{{ $applyStateBindingModifiers("\$entangle('{$getStatePath()}')") }},
-            nodes: @js($nodes),
+            ...@js($configuration),
         })"
-        x-on:click.outside="open = false"
-        x-on:keydown.escape.stop.prevent="close()"
-        x-on:keydown.tab="open = false"
+        x-on:click.outside="close(false)"
+        x-on:focusout="leave($event)"
+        x-on:keydown.escape="if (open) { $event.preventDefault(); $event.stopPropagation(); close() }"
     >
+        <span hidden data-tree-config="{{ json_encode($configuration) }}"></span>
         <x-filament::input.wrapper :disabled="$isDisabled()" :valid="! $errors->has($getStatePath())">
             <button
                 id="{{ $getId() }}"
@@ -20,65 +25,43 @@
                 aria-haspopup="tree"
                 aria-controls="{{ $getId() }}-tree"
                 x-bind:aria-expanded="open"
+                x-bind:data-readonly="readOnly"
+                x-bind:disabled="disabled"
                 @disabled($isDisabled())
                 x-on:click="toggle()"
-                x-on:keydown.arrow-down.prevent="show()"
+                x-on:keydown.arrow-down.prevent="show(true)"
             >
                 <span x-text="selectedLabel"></span>
                 <x-filament::icon icon="heroicon-m-chevron-down" class="h-4 w-4" />
             </button>
         </x-filament::input.wrapper>
-
-        <div class="taxonomy-parent-dropdown" x-show="open" x-cloak>
+        <div class="taxonomy-parent-dropdown" x-ref="popup" x-show="open" x-bind:style="popupStyle" x-cloak>
             <input
                 x-ref="search"
                 type="search"
                 class="taxonomy-parent-search"
-                placeholder="Search terms…"
-                aria-label="Search parent terms"
+                placeholder="{{ __('filament-taxonomies::parent-tree.search') }}"
+                aria-label="{{ __('filament-taxonomies::parent-tree.search_label') }}"
                 x-model="search"
-                x-on:keydown.arrow-down.prevent="focusFirst()"
+                x-on:keydown.arrow-down.prevent="enterTree()"
             />
-            <button type="button" class="taxonomy-parent-root" x-on:click="choose(null)">
-                No parent (root term)
-            </button>
             <div
                 id="{{ $getId() }}-tree"
                 role="tree"
-                aria-label="Parent terms"
+                aria-label="{{ __('filament-taxonomies::parent-tree.tree_label') }}"
                 class="taxonomy-parent-options"
                 x-on:keydown="navigate($event)"
             >
-                <template x-for="node in visibleNodes" :key="node.id">
-                    <div
-                        role="treeitem"
-                        x-bind:data-node-id="node.id"
-                        x-bind:aria-level="node.ancestors.length + 1"
-                        x-bind:aria-expanded="node.hasChildren ? isExpanded(node.id) : null"
-                        x-bind:aria-selected="String(state) === String(node.id)"
-                        x-bind:aria-disabled="node.disabled"
-                        x-bind:tabindex="activeId === node.id ? 0 : -1"
-                        x-bind:style="{ paddingInlineStart: (8 + node.ancestors.length * 20) + 'px' }"
-                        class="taxonomy-parent-node"
-                        x-on:focus="activeId = node.id"
-                        x-on:click="choose(node.id)"
-                    >
-                        <button
-                            type="button"
-                            tabindex="-1"
-                            class="taxonomy-parent-toggle"
-                            x-bind:class="{ 'is-leaf': !node.hasChildren }"
-                            x-bind:aria-label="(isExpanded(node.id) ? 'Collapse ' : 'Expand ') + node.name"
-                            x-bind:disabled="!node.hasChildren"
-                            x-on:click.stop="toggleNode(node.id)"
-                        >
-                            <span x-bind:class="{ 'is-expanded': isExpanded(node.id) }">›</span>
-                        </button>
-                        <span class="taxonomy-parent-name" x-text="node.name"></span>
-                        <span class="taxonomy-parent-reason" x-show="node.disabled" x-text="node.reason"></span>
-                    </div>
-                </template>
-                <p class="taxonomy-parent-empty" x-show="visibleNodes.length === 0">No matching terms</p>
+                <div role="treeitem" data-node-id="root"
+                    aria-level="1" aria-posinset="1" aria-setsize="{{ 1 + count(array_filter($nodes, fn ($node) => $node['ancestors'] === [])) }}"
+                    x-bind:aria-selected="state === null || state === ''"
+                    x-bind:tabindex="activeId === null ? 0 : -1"
+                    class="taxonomy-parent-node taxonomy-parent-root"
+                    x-on:focus.stop="activeId = null" x-on:click.stop="choose(null)">
+                    {{ __('filament-taxonomies::parent-tree.root') }}
+                </div>
+                @include('filament-taxonomies::forms.parent-tree-branch', ['ancestors' => [], 'treeId' => $getId()])
+                <p class="taxonomy-parent-empty" x-show="visibleNodes.length === 0" role="status">{{ __('filament-taxonomies::parent-tree.empty') }}</p>
             </div>
         </div>
     </div>
