@@ -235,3 +235,69 @@ test('destroying a field before deferred initialization cannot leave observers o
     assert.equal(observing, false)
     assert.equal(listeners.size, 0)
 })
+
+test('opening a picker does not steal focus after the user has already moved on', (t) => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'document')
+    t.after(() => {
+        if (original) Object.defineProperty(globalThis, 'document', original)
+        else delete globalThis.document
+    })
+    const trigger = {}
+    const nextControl = {}
+    globalThis.document = { activeElement: trigger }
+    const ticks = []
+    let focused = false
+    const tree = taxonomyParentTree({ state: 2, nodes })
+    tree.$nextTick = (callback) => ticks.push(callback)
+    tree.positionPopup = () => {}
+    tree.$refs = {
+        search: {
+            focus: () => {
+                focused = true
+            },
+        },
+    }
+    tree.show()
+    globalThis.document.activeElement = nextControl
+    ticks.shift()()
+    assert.equal(focused, false)
+})
+
+test('closing a picker cancels its queued opening focus', () => {
+    const ticks = []
+    let focused = false
+    const tree = taxonomyParentTree({ state: 2, nodes })
+    tree.$nextTick = (callback) => ticks.push(callback)
+    tree.positionPopup = () => {}
+    tree.$refs = {
+        search: {
+            focus: () => {
+                focused = true
+            },
+        },
+    }
+    tree.show()
+    tree.close(false)
+    ticks.shift()()
+    assert.equal(focused, false)
+})
+
+test('queued tree focus cannot override a newer navigation target or a closed picker', () => {
+    const ticks = []
+    const focused = []
+    const tree = taxonomyParentTree({ state: 2, nodes })
+    tree.open = true
+    tree.$nextTick = (callback) => ticks.push(callback)
+    tree.$root = {
+        querySelector: (selector) => ({ focus: () => focused.push(selector) }),
+    }
+    tree.focusNode(2)
+    tree.focusNode(1)
+    ticks.shift()()
+    ticks.shift()()
+    assert.deepEqual(focused, ['[data-node-id="1"]'])
+    tree.focusNode(2)
+    tree.close(false)
+    ticks.shift()()
+    assert.equal(focused.length, 1)
+})

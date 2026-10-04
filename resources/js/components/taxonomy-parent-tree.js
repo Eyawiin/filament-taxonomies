@@ -188,6 +188,7 @@ export default function taxonomyParentTree({
 
         show(enterTree = false) {
             if (this.blocked) return
+            const focusOrigin = globalThis.document?.activeElement
             this.search = ''
             const selected = this.nodes.find(
                 (node) => node.id === this.selectionId(),
@@ -199,7 +200,10 @@ export default function taxonomyParentTree({
             this.activeId = this.selectionId()
             this.open = true
             this.$nextTick(() => {
+                if (destroyed || !this.open || this.blocked) return
                 this.positionPopup()
+                // Preserve focus if the user has already navigated elsewhere.
+                if (globalThis.document?.activeElement !== focusOrigin) return
                 if (enterTree) this.focusNode(this.activeId)
                 else this.$refs.search.focus()
             })
@@ -243,11 +247,19 @@ export default function taxonomyParentTree({
         focusNode(id) {
             if (id !== ROOT && !this.isVisible(id)) return
             this.activeId = id
-            this.$nextTick(() =>
+            this.$nextTick(() => {
+                if (
+                    destroyed ||
+                    !this.open ||
+                    this.blocked ||
+                    this.activeId !== id ||
+                    (id !== ROOT && !this.isVisible(id))
+                )
+                    return
                 this.$root
                     .querySelector('[data-node-id="' + (id ?? 'root') + '"]')
-                    ?.focus(),
-            )
+                    ?.focus()
+            })
         },
 
         focusFirst() {

@@ -5,6 +5,11 @@ const first = (page) => page.locator('.taxonomy-parent-tree').first()
 const trigger = (field) => field.locator('.taxonomy-parent-trigger')
 const item = (field, id) => field.locator('[data-node-id="' + id + '"]')
 
+const openPicker = async (field) => {
+    await trigger(field).click()
+    await expect(field.locator('input[type=search]')).toBeFocused()
+}
+
 let errors
 
 test.beforeEach(async ({ page }) => {
@@ -40,7 +45,7 @@ test('collapse and search recover visible focus; unavailable branches remain exp
     page,
 }) => {
     const field = first(page)
-    await trigger(field).click()
+    await openPicker(field)
     await field.locator('input[type=search]').fill('Rome')
     await page.keyboard.press('ArrowDown')
     await expect(item(field, 'root')).toBeFocused()
@@ -52,13 +57,13 @@ test('collapse and search recover visible focus; unavailable branches remain exp
     await page.keyboard.press('ArrowLeft')
     await expect(item(field, 2)).toBeFocused()
     await page.keyboard.press('Escape')
-    await trigger(field).click()
+    await openPicker(field)
     await field.locator('input[type=search]').fill('missing')
     await expect(field.getByRole('status')).toHaveText('No matching terms')
     await page.keyboard.press('ArrowDown')
     await expect(item(field, 'root')).toBeFocused()
     await page.keyboard.press('Escape')
-    await trigger(field).click()
+    await openPicker(field)
     await field.locator('input[type=search]').press('Tab')
     await expect(item(field, 2)).toBeFocused()
 })
@@ -69,7 +74,7 @@ test('Livewire updates state, options and disabled/read-only controls without st
     const field = first(page)
     await page.getByText('Set parent', { exact: true }).click()
     await expect(trigger(field)).toHaveText('France')
-    await trigger(field).click()
+    await openPicker(field)
     await page.getByText('Toggle disabled', { exact: true }).click()
     await expect(trigger(field)).toBeDisabled()
     await expect(field.locator('[role=tree]')).toBeHidden()
@@ -99,11 +104,11 @@ test('fields and repeater instances are isolated and labels remain plain text', 
         .locator('.taxonomy-parent-trigger')
         .evaluateAll((elements) => elements.map((el) => el.id))
     expect(new Set(ids).size).toBe(4)
-    await trigger(fields.nth(1)).click()
+    await openPicker(fields.nth(1))
     await item(fields.nth(1), 4).click()
     await expect(trigger(fields.nth(1))).toHaveText('France')
     await expect(trigger(fields.first())).toHaveText('Italy')
-    await trigger(fields.nth(2)).click()
+    await openPicker(fields.nth(2))
     await item(fields.nth(2), 5).click()
     await expect(trigger(fields.nth(2))).toHaveText(
         '<img src=x onerror=alert(1)>',
@@ -116,7 +121,7 @@ test('nested accessibility tree exposes hierarchy, selection and unavailable rea
     page,
 }) => {
     const field = first(page)
-    await trigger(field).click()
+    await openPicker(field)
     await expect(item(field, 3).locator('..')).toHaveAttribute('role', 'group')
     await expect(item(field, 3)).toHaveAttribute('aria-level', '3')
     await expect(item(field, 2)).toHaveAttribute('aria-disabled', 'true')
@@ -170,7 +175,7 @@ test('action modals remount cleanly after validation and cancellation', async ({
             .getByRole('dialog')
             .filter({ has: page.locator('.taxonomy-parent-tree') })
         const field = modal.locator('.taxonomy-parent-tree')
-        await trigger(field).click()
+        await openPicker(field)
         await item(field, 4).click()
         await expect(trigger(field)).toHaveText('France')
         await modal
@@ -198,7 +203,7 @@ test('search ArrowRight stays on a branch when no child matches instead of jumpi
     page,
 }) => {
     const field = first(page)
-    await trigger(field).click()
+    await openPicker(field)
     await field.locator('input[type=search]').fill('t')
     await page.keyboard.press('ArrowDown')
     await expect(item(field, 'root')).toBeFocused()
