@@ -1,9 +1,10 @@
 # F6 foundation acceptance
 
-Recorded 2026-10-02 on `5.x`: local F5 base `40141f6`, both F0–F5 review campaigns,
-and F6 working-tree changes. **Local implementation and verification are complete.
+Recorded 2026-10-02 on `5.x`: checkpoint `6a606cb` contains both F0–F5 review campaigns
+and the F6 implementation. The subsequent F0–F6 review corrections are included
+in this refreshed evidence. **Local implementation and verification are complete.
 Full F6 acceptance remains open for human screen-reader evidence and the new
-remote CI matrix.** F6 changes are uncommitted and unpushed.
+remote CI matrix.** The subsequent review corrections are uncommitted; no push occurred.
 
 Related evidence: [foundation contracts](FOUNDATION.md),
 [two review campaigns](F6_REVIEW.md), [raw performance samples and final source
@@ -44,7 +45,7 @@ rendered sidebar items including native navigation. Auto-increment IDs differ
 and also affect encoded byte counts. These differences and small samples preclude
 exact speedup/statistical claims.
 
-Final server/browser measurements ran after the identity fixes without competing
+Final server/browser measurements ran after the complete F0–F6 review fixes without competing
 test/build jobs. The artifact fingerprints identify the measured runtime source.
 
 ## Final measurements
@@ -53,17 +54,17 @@ Paired page values mean **management / parent field**. MB is decimal.
 
 | Fixture | SQL queries | Server ms | DOM ready ms | HTML MB | DOM elements |
 | --- | --- | --- | --- | --- | --- |
-| broad-100 | 3 / 6 | 270 / 88 | 1398 / 495 | 1.45 / 0.45 | 4811 / 1686 |
-| broad-1000 | 3 / 6 | 2024 / 213 | 11311 / 1495 | 11.99 / 1.98 | 37481 / 6376 |
-| mixed-100-depth4 | 3 / 6 | 267 / 89 | 1467 / 532 | 1.44 / 0.46 | 5009 / 1745 |
-| deep-32 | 3 / 6 | 141 / 86 | 783 / 418 | 0.65 / 0.35 | 2429 / 1389 |
+| broad-100 | 3 / 6 | 273 / 88 | 1356 / 503 | 1.45 / 0.45 | 4811 / 1686 |
+| broad-1000 | 3 / 6 | 2086 / 216 | 11335 / 1452 | 11.99 / 1.98 | 37481 / 6376 |
+| mixed-100-depth4 | 3 / 6 | 267 / 91 | 1474 / 520 | 1.44 / 0.46 | 5009 / 1745 |
+| deep-32 | 3 / 6 | 147 / 83 | 794 / 412 | 0.65 / 0.35 | 2429 / 1389 |
 
 | Fixture | Matching search ms | No-match ms | Clear search ms | End navigation ms |
 | --- | --- | --- | --- | --- |
-| broad-100 | 174 | 141 | 123 | 68 |
-| broad-1000 | 621 | 485 | 657 | 251 |
-| mixed-100-depth4 | 127 | 140 | 133 | 74 |
-| deep-32 | 99 | 114 | 96 | 72 |
+| broad-100 | 138 | 132 | 157 | 74 |
+| broad-1000 | 612 | 483 | 665 | 244 |
+| mixed-100-depth4 | 129 | 139 | 133 | 80 |
+| deep-32 | 95 | 113 | 94 | 64 |
 
 Home restores root focus after End. No-match leaves root available; matching
 leaves preserve ancestors. Sidebar item counts remain complete across all pages.
@@ -73,10 +74,10 @@ modal lifecycle, repeated/multiple fields and narrow/RTL presentation.
 
 | Fixture | Tree queries / JSON bytes | Parent config queries / JSON bytes | Sidebar queries / ms | Diagnostics queries / ms |
 | --- | --- | --- | --- | --- |
-| broad-100 | 1 / 15772 | 3 / 10625 | 1 / 11.8 | 1 / 0.3 |
-| broad-1000 | 1 / 158782 | 3 / 108675 | 1 / 13.0 | 1 / 1.5 |
-| mixed-100-depth4 | 1 / 15713 | 3 / 10801 | 1 / 12.7 | 1 / 0.3 |
-| deep-32 | 1 / 5015 | 3 / 6969 | 1 / 12.0 | 1 / 0.2 |
+| broad-100 | 1 / 15772 | 3 / 10625 | 1 / 12.2 | 1 / 0.3 |
+| broad-1000 | 1 / 158782 | 3 / 108675 | 1 / 11.6 | 1 / 1.5 |
+| mixed-100-depth4 | 1 / 15713 | 3 / 10801 | 1 / 11.8 | 1 / 0.3 |
+| deep-32 | 1 / 5015 | 3 / 6969 | 1 / 11.6 | 1 / 0.2 |
 
 The edited term is the first root, exercising disabled descendants. Diagnostics
 on these valid fixtures return an empty array. Public `getDescendantIds()`
@@ -93,9 +94,9 @@ It is no longer needed to disable options in an already loaded parent tree.
 - Parent configuration previously required **5 / 6 / 35** queries; now **three**
   regardless of depth. Self/descendant flags follow loaded ancestor paths.
   Available-ID validation and fresh service validation remain intact.
-- At 1,000 terms parent DOM readiness moved from about **4.37 s to 1.50 s**.
+- At 1,000 terms parent DOM readiness moved from about **4.37 s to 1.45 s**.
   Matching/no-match/clear search moved from **1.60 / 1.23 / 4.42 s** to approximately
-  **0.62 / 0.49 / 0.66 s**. Component-local memoization and set lookups avoid
+  **0.61 / 0.48 / 0.67 s**. Component-local memoization and set lookups avoid
   repeated full-tree scans per visible node. Search, expansion and configuration
   changes invalidate reuse; separate instances have separate caches.
 - Management at 1,000 terms remains about **11.3 s** (baseline 11.7 s), with roughly
@@ -192,8 +193,8 @@ before lookup, preventing an unsigned owner from aliasing a supported record.
 
 | Gate | Result |
 | --- | --- |
-| PHP | **356 cases / 1,428 assertions**, PHP 8.3 / Laravel 13 |
-| Node | **20 cases**, including visibility reuse/invalidation |
+| PHP | **359 cases / 1,442 assertions**, PHP 8.3 / Laravel 13 |
+| Node | **21 cases**, including visibility reuse/invalidation |
 | Parent browser | **9 native Chromium cases**, axe/AX snapshots; not human AT |
 | Scale browser | All four isolated fixtures pass; raw samples retained |
 | MySQL | **7 independent-process scenarios**, six observed waits, **4 slug constraints**, joined visibility and import diagnostics |
@@ -204,7 +205,7 @@ before lookup, preventing an unsigned owner from aliasing a supported record.
 Logs: ignored `build/f6-acceptance-*.log` and `build/performance-*.json`.
 Archives used the temporarily staged working tree; the index was restored.
 The task-owned MySQL container was removed. Fixtures did not use workbench data.
-The final PHP/static/style and fresh-consumer gates ran after the identity fixes.
+The final PHP/static/style and fresh-consumer gates ran after all review fixes.
 
 ## Remaining acceptance gates
 
@@ -215,6 +216,22 @@ The final PHP/static/style and fresh-consumer gates ran after the identity fixes
   commit: lowest/stable dependencies, PHP 8.2 and native Windows included.
   Local WSL testing and workflow linting do not establish that evidence.
 
-F4/F5 remain two existing unpushed commits. Both review campaigns and F6 changes
-remain uncommitted. P1 assignment/public-field work remains behind F6 acceptance
+F4/F5 and checkpoint 6a606cb are three existing unpushed commits. Subsequent
+review corrections remain uncommitted. P1 assignment/public-field work remains behind F6 acceptance
 unless the user explicitly changes its scope.
+
+
+## Whole-foundation review follow-up
+
+The [review ledger](F6_REVIEW.md) records two final clean passes per F0–F6
+milestone and four additional corrected failures: joined pagination, ambiguous
+table search/sorting, reader global-search destinations, and deferred parent
+initialization after destruction. Measurements above include those corrections.
+
+Each isolated Laravel 11/12 prefer-lowest install passes 359 PHP tests / 1,436
+assertions on PHP 8.3/WSL. The current Laravel 13 stack passes 359 / 1,442.
+Laravel 11's tested dependency set reports 19 advisory entries across four
+packages; the current lock and tested Laravel 12 set report none in this dated
+check. Legacy compatibility remains explicit, and maintained versions should be
+used for new consumers. No new PHP 8.2/native Windows or human AT evidence is
+claimed. Review logs use build/f0-f6-review-*.

@@ -123,3 +123,27 @@ class AggregateTaxonomyResource extends TaxonomyResource
 {
     protected static ?string $model = AggregateTaxonomy::class;
 }
+
+it('paginates each visible taxonomy once when permission joins duplicate records', function (): void {
+    $first = Taxonomy::create(['name' => 'First', 'slug' => 'first']);
+    $second = Taxonomy::create(['name' => 'Second', 'slug' => 'second']);
+    $hidden = Taxonomy::create(['name' => 'Hidden', 'slug' => 'hidden']);
+    Taxonomy::addGlobalScope('duplicate-permissions', function (Builder $query) use ($hidden): void {
+        $query->crossJoin(DB::raw("(select 777 as id, 'Permission' as name, 'permission' as slug, 1 as copy union all select 778, 'Permission', 'permission', 2) as permissions"))
+            ->whereKeyNot($hidden->id);
+    });
+    $component = Livewire::test(ListTaxonomies::class);
+    $records = $component->instance()->getTableRecords();
+    expect($records->total())->toBe(2)
+        ->and($records->count())->toBe(2)
+        ->and($records->getCollection()->modelKeys())->toEqualCanonicalizing([$first->id, $second->id]);
+    $component->searchTable('First')
+        ->assertCanSeeTableRecords([$first])
+        ->assertCanNotSeeTableRecords([$second]);
+    expect($component->instance()->getTableRecords()->total())->toBe(1);
+    foreach (['name', 'slug'] as $column) {
+        $component->searchTable('')->sortTable($column, 'desc');
+        expect($component->instance()->getTableRecords()->getCollection()->modelKeys())
+            ->toBe([$second->id, $first->id]);
+    }
+});

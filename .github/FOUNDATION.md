@@ -621,3 +621,19 @@ MySQL contention/slug checks and the new joined-scope SQL check pass. Final Git
 and Composer archives and a fresh copied consumer CLI/browser pass. Static,
 formatting, manifest, build and workflow checks pass. Review changes remain
 uncommitted/unpushed. Full F6's remaining acceptance items are unchanged.
+
+
+### F0–F6 checkpoint and subsequent review — 2026-10-02
+
+Checkpoint 6a606cb commits the previous campaigns and F6 local implementation.
+The subsequent whole-foundation review is recorded in
+[F6_REVIEW.md](F6_REVIEW.md). It fixes joined taxonomy pagination/search/sorting,
+reader global-search destinations and deferred parent-field teardown.
+
+All seven milestones reached two consecutive final passes without a new code
+finding. Current PHP verification is 359 cases / 1,442 assertions; two isolated
+Laravel 11/12 prefer-lowest installs each pass 359 / 1,436. Node has 21 passing
+cases; native browser, MySQL, archive/consumer and static/build gates pass.
+Laravel 11's tested dependency set reports security advisories and retains
+legacy compatibility status. Human assistive-technology and new remote CI
+evidence remain required; no push or final release acceptance is claimed.

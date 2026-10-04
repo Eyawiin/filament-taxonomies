@@ -228,3 +228,97 @@ Each milestone finishes with two consecutive passes without further actionable
 findings in its reviewed scope. All review changes remain unstaged, uncommitted
 and unpushed; the two previous local milestone commits remain unpushed. The
 remaining full F6 acceptance items listed above are still open.
+
+## F0–F6 review after the foundation checkpoint — 2026-10-02
+
+The user requested a commit before this review. Checkpoint **6a606cb** contains
+both earlier review campaigns and the F6 implementation/evidence. F4/F5 and this
+checkpoint are local; no push occurred. The findings below are subsequent
+working-tree changes.
+
+### Findings reproduced and fixed
+
+1. **F1: duplicated taxonomy pagination.** A permission join producing two rows
+   per taxonomy made Filament report four records for two visible taxonomies.
+   Resource queries now use an explicit distinct primary key. Laravel uses that
+   key for the pagination aggregate as well as deduplicating selected rows.
+   Existing model aggregates and resource/global scopes remain in the query.
+2. **F1: ambiguous native table search.** Joining a permission table with its own
+   name/slug columns caused a database error when searching. Name/slug search
+   and sort columns are now qualified using the resource model's table. The
+   regression covers pagination totals, filtering, both sort orders and hidden
+   records with colliding joined columns.
+3. **F1: unavailable search destination for readers.** Native global search sent
+   a view-only user to a nonexistent table view action. When no view page exists
+   and editing is denied, permitted viewers now receive the Manage Terms URL.
+   Editors retain their native edit destination; denied records remain omitted.
+4. **F4: deferred initialization after destruction.** Destroying the parent
+   selector before its queued initialization ran still registered an observer
+   and window listeners. A component-local destruction flag now cancels that
+   work. A deterministic lifecycle regression failed with an active observer
+   before the fix and passes after it. The distributed bundle is rebuilt.
+
+These were behavioral failures, not assertions changed to accept existing bugs.
+No migration, dependency constraint, public assignment API or external tree
+package was introduced.
+
+### Review loop ledger
+
+A finding restarted the consecutive-clean-pass count for its milestone.
+Each final pass below included code/data-flow review; test repetitions alone
+were not counted as independent reviews.
+
+| Milestone | Findings/fix rounds | First subsequent clean review | Second subsequent clean review |
+| --- | --- | --- | --- |
+| F0 | No new contract implementation gap | Reconciled managed/raw writes, events, promotion, permissions and supported key/connection bounds with runtime | Checked required discovery, promoted specifications, API compatibility and evidence versus promises; no skipped foundation cases |
+| F1 | Pagination, then joined search, then reader search destination | Traced resource/navigation/options/hydration and mutation authorization; checked distinct aggregates, explicit columns and native search fallback | Reviewed denied/revoked access, active guard and custom-resource behavior against required tests and Laravel 11/12/13 results |
+| F2 | No new finding | Traced taxonomy lock, current structural reads, metadata preservation, affected sibling groups, promotion and foreign-child protection | Reviewed cancellation/rollback, outer transactions, events, native/unsigned identity boundaries and actual MySQL contention evidence |
+| F3 | No new finding | Rechecked integer/root input, stale source/parent resolution, available options and same-taxonomy uniqueness | Reviewed exact SQLite/MySQL diagnostic recognition, field paths, retries and propagation of unexpected persistence failures |
+| F4 | Deferred initialization leak | Reviewed init/destroy, reactive configuration, visibility cache invalidation, focus recovery and disabled/read-only behavior after the fix | Reviewed nested semantics, keyboard clearing, disclosure focus, multiple fields, modal remounts and nine native browser scenarios |
+| F5 | Recorded concrete legacy dependency audit limitation | Reviewed package contents, config/publishing, ordinary workbench storage, manifests, bundle reproducibility and CI discovery | Verified both archives and fresh copied consumer; checked isolated lowest-dependency lanes, workflow lint and fixture/worker failure handling |
+| F6 | Updated evidence to the reviewed source | Reviewed query/serialization/render metrics, shape/depth claims, unscoped read-only diagnostics and corruption termination | Repeated isolated measurements, checked source fingerprints and documented scope; human AT and remote CI remain explicitly open |
+
+No further actionable package-code finding remains in these reviewed paths.
+This is bounded review evidence, not a claim that all possible consumer
+extensions or database engines have been proved correct.
+
+### Verification
+
+- PHP 8.3.33 / Laravel 13.33.0 / Filament 5.8.4 / Livewire 4.4.6:
+  **359 tests / 1,442 assertions**.
+- Isolated workflow-style prefer-lowest installs, PHP 8.3 on WSL:
+  **359 tests / 1,436 assertions** each on Laravel **11.x-dev** with Testbench
+  **9.13.0**, and Laravel **12.69.0** with Testbench **10.2.0**.
+  Both resolve Filament **5.7.6**, Livewire **4.3.4**, Pest **4.3.2**.
+  These are the actual solver results, not every version allowed by Composer.
+- **21 Node tests**, **nine parent-field browser scenarios**, rebuilt/reproducible
+  assets, PHPStan level 4, Pint **108 files**, strict Composer and actionlint pass.
+- MySQL **8.4.11/InnoDB/REPEATABLE READ**: seven independent-process scenarios
+  (six observed waits), four actual slug constraint cases, joined visibility,
+  exact list counts and locking, imported defects and unsigned identity checks.
+- Git/Composer archives and fresh copied Laravel consumer pass installation,
+  publishing, CLI behavior and native CRUD/parent/policy/repeated-drag browser
+  checks. Temporary staging was restored; the review changes are uncommitted.
+- Four isolated performance fixtures are refreshed in the acceptance report and
+  raw artifact. Normal query budgets remain stable. The 1,000-term management
+  page remains outside the responsive-editor scope.
+
+Logs: ignored build/f0-f6-review-*.log. MySQL's latest run also appears in
+build/f6-acceptance-mysql.log. All fixture databases are isolated from workbench.
+
+### Remaining scope and dependency evidence
+
+The isolated Laravel 11 install reported **19 advisory entries across four
+packages**: Laravel Framework, Guzzle, PSR-7 and mail-mime-parser. The current
+Laravel 13 lock and the tested Laravel 12 install reported no advisories in this
+dated check. The JSON audit results are retained under build/. Functional test
+success does not close these advisories. Laravel 11 remains the existing legacy
+compatibility lane; maintained Laravel 12/13 should be used for new consumers.
+Removing or claiming renewed production support for Laravel 11 requires the
+release/support decision already identified by F0/P3.
+
+Actual NVDA/Firefox or VoiceOver/Safari observations and a new remote CI run
+(including PHP 8.2/native Windows) remain open. They cannot be inferred from
+Chromium checks or PHP 8.3 WSL runs. P1 can reuse the tree service's transaction
+boundary, scoped authorization integration and internal field navigation, while
+keeping assignment semantics and owner-key handling in their own API.

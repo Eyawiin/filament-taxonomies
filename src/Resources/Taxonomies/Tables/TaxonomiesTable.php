@@ -19,15 +19,18 @@ class TaxonomiesTable
      */
     public static function configure(Table $table, string $resource = TaxonomyResource::class): Table
     {
+        $modelClass = $resource::getModel();
+        $model = new $modelClass;
+
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable([$model->qualifyColumn('name')])
+                    ->sortable([$model->qualifyColumn('name')]),
 
                 TextColumn::make('slug')
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable([$model->qualifyColumn('slug')])
+                    ->sortable([$model->qualifyColumn('slug')]),
 
                 TextColumn::make('terms_count')
                     ->counts(['terms' => $resource::countDistinctTerms(...)])

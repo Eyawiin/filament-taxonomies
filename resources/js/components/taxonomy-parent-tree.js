@@ -10,6 +10,7 @@ export default function taxonomyParentTree({
     // Configuration nodes and expansion lists are replaced by this component.
     // Keep memoization outside Alpine's reactive state to avoid effect loops.
     let visibility = null
+    let destroyed = false
 
     return {
         state,
@@ -33,6 +34,7 @@ export default function taxonomyParentTree({
                 if (!this.open) this.activeId = this.selectionId()
             })
             this.$nextTick(() => {
+                if (destroyed) return
                 const config = this.$root.querySelector('[data-tree-config]')
                 this.observer = new MutationObserver(() =>
                     this.configure(JSON.parse(config.dataset.treeConfig)),
@@ -50,6 +52,7 @@ export default function taxonomyParentTree({
         },
 
         destroy() {
+            destroyed = true
             this.observer?.disconnect()
             window.removeEventListener('resize', this.reposition)
             window.removeEventListener('scroll', this.reposition, true)

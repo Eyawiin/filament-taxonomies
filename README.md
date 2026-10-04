@@ -171,8 +171,9 @@ future conversion to lossless string IDs throughout state, events and actions.
 ## Compatibility
 
 Filament 5 requires PHP 8.2+, Laravel 11.28+ and Tailwind CSS 4.1+.
-This branch retains Laravel 11 as legacy compatibility; use Laravel 12/13 for
-new projects. [Filament installation requirements](https://filamentphp.com/docs/5.x/introduction/installation)
+This branch retains Laravel 11 as legacy compatibility. Its tested dependency
+set reported upstream security advisories in the [2026-10-02 foundation review](.github/F6_REVIEW.md).
+Use Laravel 12/13 for new projects. [Filament installation requirements](https://filamentphp.com/docs/5.x/introduction/installation)
 
 | Laravel | PHP test lanes | Testbench |
 | --- | --- | --- |

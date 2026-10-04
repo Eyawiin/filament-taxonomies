@@ -20,6 +20,7 @@ function verifyJoinedVisibility(): void
     $termScopes = TaxonomyTerm::getAllGlobalScopes();
     Taxonomy::addGlobalScope('permissions', function (Builder $query) use ($taxonomy): void {
         $query->crossJoin(DB::raw("(select 777 as id, 'Permission' as name, 'permission' as slug) as permissions"))
+            ->crossJoin(DB::raw('(select 1 as copy union all select 2 as copy) as permission_copies'))
             ->whereKey($taxonomy->id);
     });
     TaxonomyTerm::addGlobalScope('permissions', function (Builder $query) use ($hidden, $taxonomy): void {
@@ -30,9 +31,11 @@ function verifyJoinedVisibility(): void
     });
 
     try {
-        $query = Taxonomy::query()->select($taxonomy->qualifyColumn('*'))
+        $query = TaxonomyResource::getEloquentQuery()
             ->withCount(['terms' => TaxonomyResource::countDistinctTerms(...)]);
-        $record = $taxonomy->resolveRouteBindingQuery($query, $taxonomy->slug, 'slug')->firstOrFail();
+        checkConcurrency($query->toBase()->getCountForPagination() === 1, 'Joined taxonomy pagination must count each physical record once.');
+        checkConcurrency((clone $query)->get()->count() === 1, 'Joined taxonomy rows must not duplicate list entries.');
+        $record = DB::transaction(fn () => $taxonomy->resolveRouteBindingQuery($query, $taxonomy->slug, 'slug')->lockForUpdate()->firstOrFail());
         checkConcurrency($record->id === $taxonomy->id && $record->name === $taxonomy->name && (int) $record->terms_count === 4, 'Joined taxonomy records and distinct visible counts must retain their identity.');
         $service = new TaxonomyTreeService;
         $tree = $service->getTree($record);

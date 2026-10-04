@@ -103,3 +103,18 @@ it('rebuilds navigation permissions for the current user', function (): void {
     expect(array_map(fn ($item) => $item->getLabel(), TaxonomyResource::getNavigationItems()))
         ->toContain($private->name);
 });
+
+it('opens an available page from global search for readers and editors', function (bool $canEdit): void {
+    $public = Taxonomy::create(['name' => 'Public topics', 'slug' => 'public']);
+    Taxonomy::create(['name' => 'Private topics', 'slug' => 'private']);
+    if ($canEdit) {
+        Gate::before(static fn ($user, string $ability): ?bool => $ability === 'update' ? true : null);
+    }
+    $results = TaxonomyResource::getGlobalSearchResults('Public topics');
+    expect($results)->toHaveCount(1)
+        ->and($results->first()->url)->toBe(TaxonomyResource::getUrl($canEdit ? 'edit' : 'manageTerms', ['record' => $public]));
+    if (! $canEdit) {
+        expect(TaxonomyResource::getGlobalSearchResults('Private topics'))->toBeEmpty();
+        Livewire::test(ManageTaxonomyTerms::class, ['record' => $public->id])->assertSuccessful();
+    }
+})->with(['reader' => false, 'editor' => true]);

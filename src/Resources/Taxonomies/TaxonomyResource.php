@@ -14,6 +14,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Expression;
 
 class TaxonomyResource extends Resource
@@ -34,8 +35,19 @@ class TaxonomyResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
+        // Explicit distinct key also makes Laravel's pagination count unique records.
         return $query->addSelect($query->qualifyColumn('*'))
+            ->distinct([$query->getModel()->getQualifiedKeyName()])
             ->whereBetween($query->getModel()->getQualifiedKeyName(), [1, PHP_INT_MAX]);
+    }
+
+    public static function getGlobalSearchResultUrl(Model $record): ?string
+    {
+        if (! static::hasPage('view') && ! static::canEdit($record) && static::canView($record)) {
+            return static::getUrl('manageTerms', ['record' => $record]);
+        }
+
+        return parent::getGlobalSearchResultUrl($record);
     }
 
     /** @internal Aggregate callback shared by navigation and table counts. */

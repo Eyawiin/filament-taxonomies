@@ -192,3 +192,46 @@ test('visibility is reused for row lookups and refreshed by search, expansion an
     tree.toggleNode(1)
     assert.equal(tree.isVisible(3), true)
 })
+
+test('destroying a field before deferred initialization cannot leave observers or window listeners', (t) => {
+    const ticks = []
+    const listeners = new Set()
+    let observing = false
+    const originals = Object.fromEntries(
+        ['window', 'MutationObserver'].map((key) => [
+            key,
+            Object.getOwnPropertyDescriptor(globalThis, key),
+        ]),
+    )
+    t.after(() => {
+        for (const [key, descriptor] of Object.entries(originals)) {
+            if (descriptor) Object.defineProperty(globalThis, key, descriptor)
+            else delete globalThis[key]
+        }
+    })
+    globalThis.window = {
+        addEventListener(type) {
+            listeners.add(type)
+        },
+        removeEventListener(type) {
+            listeners.delete(type)
+        },
+    }
+    globalThis.MutationObserver = class {
+        observe() {
+            observing = true
+        }
+        disconnect() {
+            observing = false
+        }
+    }
+    const tree = taxonomyParentTree({ state: null, nodes })
+    tree.$watch = () => {}
+    tree.$nextTick = (callback) => ticks.push(callback)
+    tree.$root = { querySelector: () => ({ dataset: {} }) }
+    tree.init()
+    tree.destroy()
+    ticks.forEach((callback) => callback())
+    assert.equal(observing, false)
+    assert.equal(listeners.size, 0)
+})
