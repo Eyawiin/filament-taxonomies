@@ -34,6 +34,8 @@ foreach ([$archive, $composerArchive] as $candidate) {
         'database/migrations/0001_create_taxonomies_table.php',
         'database/migrations/0002_create_taxonomy_terms_table.php',
         'database/migrations/0003_add_position_to_taxonomy_terms_table.php',
+        'database/migrations/0004_create_taxonomy_term_assignments_table.php',
+        'src/Concerns/HasTaxonomies.php', 'src/Services/TaxonomyAssignmentService.php',
         'resources/views/forms/parent-tree-select.blade.php',
         'resources/views/forms/parent-tree-branch.blade.php',
         'resources/views/components/taxonomy-tree.blade.php',

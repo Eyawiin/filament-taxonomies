@@ -61,3 +61,12 @@ integer ceiling: diagnostics retain exact physical keys, managed operations
 reject aliases, oversized parent/owner references cannot select neighbouring
 records, and generated-ID exhaustion rolls back. These fixtures run last because
 explicit large IDs advance the disposable tables’ auto-increment counters.
+
+## Assignment verification (P1)
+
+The runner also migrates the real assignment pivot and uses two independent
+processes to verify idempotent concurrent attachment, conflicting scoped sync
+under an existing repeatable-read snapshot, and attachment waiting on term/owner
+deletion. All four scenarios require observed InnoDB lock waits. Additional
+checks exercise case-sensitive morph identity and owner cleanup isolation.
+All fixture owner tables are created only in the runner's random disposable DB.

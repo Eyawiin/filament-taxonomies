@@ -16,3 +16,5 @@ PROJECT_CONTEXT.md
 /workbench/storage
 /playwright-report/
 /test-results/
+
+/workbench/database/*.sqlite*

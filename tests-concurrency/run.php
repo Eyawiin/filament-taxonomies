@@ -91,7 +91,7 @@ try {
         (require $migration)->up();
     }
     $engines = DB::select('SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?', [$database]);
-    checkConcurrency(count($engines) === 2 && count(array_filter($engines, fn ($row) => $row->ENGINE !== 'InnoDB')) === 0, 'Both actual package tables must use InnoDB.');
+    checkConcurrency(count($engines) === 3 && count(array_filter($engines, fn ($row) => $row->ENGINE !== 'InnoDB')) === 0, 'All three actual package tables must use InnoDB.');
     checkConcurrency(DB::selectOne('SELECT @@transaction_isolation AS isolation')->isolation === 'REPEATABLE-READ', 'Expected repeatable-read isolation.');
     echo 'MySQL ' . $version . ' / InnoDB / REPEATABLE READ / independent PHP processes' . "\n";
 
@@ -233,6 +233,8 @@ try {
     verifyJoinedVisibility();
     require __DIR__ . '/import-diagnostics.php';
     verifyImportedStructure();
+    require __DIR__ . '/assignments.php';
+    verifyAssignments($admin, $database);
     verifyUnsignedIdentities();
 
 } catch (Throwable $exception) {

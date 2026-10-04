@@ -3,7 +3,9 @@
 use Eyawiin\FilamentTaxonomies\Enums\TaxonomyTermDropPosition;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
+use Eyawiin\FilamentTaxonomies\Services\TaxonomyAssignmentService;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
+use Eyawiin\FilamentTaxonomies\Tests\Support\Assignments\Article;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 
@@ -37,12 +39,16 @@ try {
     if ($snapshot === '1') {
         TaxonomyTerm::all();
     }
+    $owner = isset($args['owner']) ? Article::findOrFail($args['owner']) : null;
+    if ($snapshot === '1' && $owner) {
+        $owner->taxonomyTerms()->get();
+    }
     $connectionId = (int) $connection->selectOne('SELECT CONNECTION_ID() AS id')->id;
     signalWorker('ready', ['connection' => $connectionId]);
 
     $hold = $pause === '1';
-    $connection->listen(function (QueryExecuted $event) use (&$hold): void {
-        if ($hold && str_contains($event->sql, chr(96) . 'taxonomies' . chr(96)) && str_contains(strtolower($event->sql), 'for update')) {
+    $connection->listen(function (QueryExecuted $event) use (&$hold, $operation): void {
+        if ($hold && ((str_contains($event->sql, chr(96) . 'taxonomies' . chr(96)) && str_contains(strtolower($event->sql), 'for update')) || ($operation === 'delete-owner' && str_starts_with($event->sql, 'delete from ' . chr(96) . 'assignment_articles' . chr(96))))) {
             $hold = false;
             signalWorker('locked');
             awaitCommand('continue');
@@ -55,6 +61,9 @@ try {
         $source->name = $args['name'];
     }
     $result = match ($operation) {
+        'assign-attach' => (new TaxonomyAssignmentService)->attach($owner, $taxonomy, $args['terms']),
+        'assign-sync' => (new TaxonomyAssignmentService)->sync($owner, $taxonomy, $args['terms']),
+        'delete-owner' => DB::transaction(fn () => $owner->delete()),
         'create' => $service->createTerm($taxonomy, $args['name'], $args['slug']),
         'rename', 'noop' => $service->setParent($source, null),
         'reparent' => $service->setParent($source, $target),

@@ -46,6 +46,9 @@ try {
     $service->deleteTaxonomy($taxonomy);
     requireConsumer(! Taxonomy::whereKey($taxonomy->id)->exists(), 'Taxonomy deletion failed.');
 
+    require __DIR__ . '/assignment-smoke.php';
+    verifyConsumerAssignments();
+
     // Fresh browser smoke data; not consumer/user data.
     $taxonomy = Taxonomy::create(['name' => 'Browser consumer', 'slug' => 'browser-consumer']);
     $service->createTerm($taxonomy, 'Alpha', 'alpha');

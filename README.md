@@ -83,6 +83,139 @@ public function panel(Panel $panel): Panel
 
 Open **Taxonomies** in the panel navigation to create a taxonomy, then choose **Manage Terms** to organize its terms in a tree. Drag a term by its handle and drop it near the top of another row to place it before, in the middle to make it a child, or near the bottom to place it after. You can also use the row's **Move up** and **Move down** buttons to reorder siblings without dragging. Use **Edit** to change a term's parent.
 
+## Assigning terms to Eloquent models
+
+Publish migrations again and run `php artisan migrate` after updating to this
+version. The new `taxonomy_term_assignments` table stores explicit assignments.
+No existing records are assigned automatically.
+
+Add the trait to each owner model:
+
+```php
+use Eyawiin\FilamentTaxonomies\Concerns\HasTaxonomies;
+use Illuminate\Database\Eloquent\Model;
+
+class Article extends Model
+{
+    use HasTaxonomies;
+}
+```
+
+Use the taxonomy model, a positive integer taxonomy ID, or its **exact slug**.
+Strings always mean slugs, including numeric strings. Term arguments are distinct
+positive integer IDs or lossless integer strings:
+
+```php
+$article->attachTaxonomyTerms('topics', [$termId]); // Repeating this is idempotent.
+$article->detachTaxonomyTerms($taxonomy, [$termId]);
+$article->syncTaxonomyTerms($taxonomy->id, [$firstId, $secondId]);
+$article->syncTaxonomyTerms('topics', []); // Clears topics; preserves other taxonomies.
+
+$article->termsForTaxonomy('topics')->get();
+$article->taxonomyTerms; // Every visible explicitly assigned term.
+Article::with('taxonomyTerms')->get();
+Article::whereHas('taxonomyTerms', fn ($query) =>
+    $query->where('taxonomy_terms.id', $termId)
+)->get();
+```
+
+Assigning a child does not assign its parents, children or siblings. Multiple
+terms per taxonomy are allowed. The relation supports normal Eloquent reading,
+eager loading and query constraints. Write through the trait methods or
+`TaxonomyAssignmentService`; native relation `attach`/`sync`, pivot writes and
+raw imports bypass the managed checks. When an owner query joins other tables,
+select the owner table’s columns (for example `articles.*`) so Eloquent hydrates
+the owner’s own ID and attributes.
+
+Owners must be saved, have an unchanged positive integer, UUID, or ULID primary
+key, and use the default database connection. UUID/ULID models must
+use Eloquent's string key type (configured by native `HasUuids`/`HasUlids`).
+ULID letter case is preserved, including Laravel's generated lowercase IDs.
+The pivot uses a 36-character string owner key,
+so these owner types can coexist. Morph aliases are supported, must be ASCII
+letters/digits/underscore/backslash/dot/hyphen, and fit in 191 bytes. MySQL owner
+keys and morph types use binary ASCII collation. Keep aliases stable; changing
+an alias or adopting a morph map requires migrating existing pivot types.
+Custom string keys and cross-connection ownership are unsupported.
+
+Managed writes recheck scoped owners, taxonomies and term membership inside a
+transaction, locking the taxonomy first and then the owner. MySQL 8.4/InnoDB
+serializes cooperating writers, including term deletion; the last completed sync
+sets the selection for that taxonomy. No automatic retry replays consumer code.
+For larger application transactions acquire taxonomy locks in ascending ID order
+**before** owner writes, or let these methods own their transaction. Deadlocks
+from another lock order propagate to the caller. SQLite has functional coverage;
+other databases have no concurrency guarantee here.
+
+Foreign, deleted, hidden, duplicate or malformed term inputs reject the whole
+operation. Sync also rejects an existing assignment hidden by a term scope,
+rather than clearing invisible data. Attach/detach can still operate on visible
+terms. The service performs domain checks without authentication; consumers must
+authorize the owner and assignment operation. Global scopes provide visibility,
+not a tenant ownership schema or a replacement for authorization.
+
+Term/taxonomy deletion cascades to their assignments. Normal owner hard deletion
+cleans its pivot rows via a model event. Soft deletion retains them; restoration
+makes them available again, and force deletion removes them. Wrap owner deletion
+in `DB::transaction()` when owner deletion and cleanup must be atomic.
+Query-builder/bulk deletion, `deleteQuietly()` and raw SQL do not dispatch that
+cleanup event. For those paths, explicitly clean each loaded owner's assignments
+in the **same transaction** as its hard deletion:
+
+```php
+DB::transaction(function () use ($article): void {
+    Article::whereKey($article->getKey())->delete();
+    app(\Eyawiin\FilamentTaxonomies\Services\TaxonomyAssignmentService::class)
+        ->forgetOwner($article);
+});
+```
+
+Do not call that cleanup for soft deletion. A polymorphic owner foreign key cannot
+protect eventless deletion; applications remain responsible for those paths.
+Reusable assignment form fields are the next milestone.
+
+### Trying assignments in the workbench
+
+P1 provides the backend API. Reusable assignment controls in Filament are P2.
+The workbench `User` already includes `HasTaxonomies` for manual API testing.
+From the repository root in your PHP/WSL terminal:
+
+```bash
+composer build
+php vendor/bin/testbench tinker
+```
+
+Paste these statements in Tinker:
+
+```php
+use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
+use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
+use Workbench\Database\Factories\UserFactory;
+
+$user = UserFactory::new()->create(['name' => 'P1 demo']);
+$taxonomy = Taxonomy::create(['name' => 'P1 demo', 'slug' => 'p1-demo-' . uniqid()]);
+$term = app(TaxonomyTreeService::class)->createTerm($taxonomy, 'Demo term', 'demo');
+
+$user->attachTaxonomyTerms($taxonomy, [$term->id]);
+$user->termsForTaxonomy($taxonomy)->pluck('taxonomy_terms.name')->all(); // ["Demo term"]
+$user->syncTaxonomyTerms($taxonomy, []);
+$user->taxonomyTerms()->count(); // 0
+```
+
+The demo taxonomy also appears on the normal Manage Terms page. Cleanup:
+
+```php
+\Illuminate\Support\Facades\DB::transaction(fn () => $user->delete());
+app(TaxonomyTreeService::class)->deleteTaxonomy($taxonomy);
+```
+
+The automated assignment suite exercises owner types, key formats, scopes,
+invalid inputs, rollback and cleanup:
+
+```bash
+composer test -- tests/Feature/Assignments --no-coverage
+```
+
 ## Authorization and visibility
 
 Taxonomy CRUD keeps Filament's standard policy abilities. Listing requires
@@ -208,7 +341,11 @@ bundles byte for byte using locked dependencies.
 
 The committed `testbench.yaml` defines workbench setup. `composer prepare`
 generates ignored `workbench/storage` directories without symlinks. Workbench
-builds run migrations rather than wiping existing data. Build and serve:
+builds run migrations rather than wiping existing data. The development database
+is the gitignored `workbench/database/database.sqlite`, outside Testbench's
+purgeable vendor skeleton and storage directories. Preparation creates it only
+when absent; an existing legacy vendor database is copied with a WAL-aware
+SQLite snapshot before Composer cleanup. Build and serve:
 
 ```bash
 npm run build:theme

@@ -1,10 +1,12 @@
 # F6 foundation acceptance
 
-Recorded 2026-10-02 on `5.x`: checkpoint `6a606cb` contains both F0–F5 review campaigns
-and the F6 implementation. The subsequent F0–F6 review corrections are included
-in this refreshed evidence. **Local implementation and verification are complete.
-Full F6 acceptance remains open for human screen-reader evidence and the new
-remote CI matrix.** The subsequent review corrections are uncommitted; no push occurred.
+Status updated 2026-10-04: foundation fixes are committed and pushed through
+`85088b4` on `5.x`; all 42 remote checks passed. Local evidence below records
+the measured F6 environment, rather than a fresh benchmark of later commits.
+The actual human screen-reader checklist remains **unverified**. The user
+explicitly approved proceeding to P1 with that limitation on 2026-10-04.
+Automated accessibility results do not substitute for human assistive-technology
+acceptance, and no such acceptance is claimed.
 
 Related evidence: [foundation contracts](FOUNDATION.md),
 [two review campaigns](F6_REVIEW.md), [raw performance samples and final source

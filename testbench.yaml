@@ -23,7 +23,6 @@ workbench:
     views: false
   build:
     - asset-publish
-    - create-sqlite-db
     - migrate
   assets:
     - laravel-assets

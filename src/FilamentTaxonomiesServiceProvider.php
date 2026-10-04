@@ -84,6 +84,7 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
             '0001_create_taxonomies_table',
             '0002_create_taxonomy_terms_table',
             '0003_add_position_to_taxonomy_terms_table',
+            '0004_create_taxonomy_term_assignments_table',
         ];
     }
 }

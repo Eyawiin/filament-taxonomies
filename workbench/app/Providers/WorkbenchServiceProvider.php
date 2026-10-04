@@ -22,7 +22,7 @@ class WorkbenchServiceProvider extends ServiceProvider
 
         $config->set([
             'database.default' => 'sqlite',
-            'database.connections.sqlite.database' => database_path('database.sqlite'),
+            'database.connections.sqlite.database' => dirname(__DIR__, 2) . '/database/database.sqlite',
             'cache.default' => 'file',
         ]);
     }
