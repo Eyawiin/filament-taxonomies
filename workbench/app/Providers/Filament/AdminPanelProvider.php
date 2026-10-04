@@ -6,6 +6,7 @@ use Eyawiin\FilamentTaxonomies\FilamentTaxonomiesPlugin;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Workbench\App\Filament\Resources\Decks\DeckResource;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -15,6 +16,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->resources([DeckResource::class])
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->pages([
                 Dashboard::class,

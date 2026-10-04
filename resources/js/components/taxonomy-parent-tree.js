@@ -6,10 +6,13 @@ export default function taxonomyParentTree({
     disabled = false,
     readOnly = false,
     labels = {},
+    multiple = false,
+    selectAncestors = false,
 }) {
     // Configuration nodes and expansion lists are replaced by this component.
     // Keep memoization outside Alpine's reactive state to avoid effect loops.
     let visibility = null
+    let selectionSummary = null
     let destroyed = false
 
     return {
@@ -18,6 +21,8 @@ export default function taxonomyParentTree({
         disabled,
         readOnly,
         labels,
+        multiple,
+        selectAncestors,
         open: false,
         search: '',
         expanded: nodes
@@ -29,9 +34,16 @@ export default function taxonomyParentTree({
         reposition: null,
 
         init() {
+            this.expandAncestorSelection()
             this.$watch('search', () => this.recoverFocus())
             this.$watch('state', () => {
+                selectionSummary = null
+                this.expandAncestorSelection()
                 if (!this.open) this.activeId = this.selectionId()
+                else
+                    this.$nextTick(() => {
+                        if (!destroyed && this.open) this.positionPopup()
+                    })
             })
             this.$nextTick(() => {
                 if (destroyed) return
@@ -69,6 +81,7 @@ export default function taxonomyParentTree({
                     .map((node) => node.id),
             )
             Object.assign(this, config)
+            this.expandAncestorSelection()
             if (this.blocked) {
                 const focused = this.$root?.contains(
                     globalThis.document?.activeElement,
@@ -86,21 +99,169 @@ export default function taxonomyParentTree({
 
         selectionId() {
             return (
-                this.nodes.find(
-                    (node) => String(node.id) === String(this.state),
-                )?.id ?? ROOT
+                this.nodes.find((node) => this.isSelected(node.id))?.id ?? ROOT
             )
         },
 
+        isSelected(id) {
+            if (id === ROOT)
+                return (
+                    this.state === null ||
+                    this.state === '' ||
+                    (Array.isArray(this.state) && this.state.length === 0)
+                )
+            return this.multiple
+                ? Array.isArray(this.state) &&
+                      this.state.some((value) => String(value) === String(id))
+                : !Array.isArray(this.state) &&
+                      String(this.state) === String(id)
+        },
+
         get selectedLabel() {
-            if (this.state === null || this.state === '')
+            if (this.isSelected(ROOT))
                 return this.labels.root ?? 'No parent (root term)'
+            if (!this.multiple && Array.isArray(this.state))
+                return (
+                    this.labels.unavailable ?? 'Selected parent is unavailable'
+                )
+            const values =
+                this.multiple && Array.isArray(this.state)
+                    ? this.state
+                    : [this.state]
+            return values
+                .map(
+                    (value) =>
+                        this.nodes.find(
+                            (node) => String(node.id) === String(value),
+                        )?.name ??
+                        this.labels.unavailable ??
+                        'Selected parent is unavailable',
+                )
+                .join(', ')
+        },
+
+        get selectedTerms() {
+            if (this.isSelected(ROOT)) return []
+            const values = Array.isArray(this.state) ? this.state : [this.state]
+            const nodes = new Map(
+                this.nodes.map((node) => [String(node.id), node]),
+            )
+            return values.map((id) => {
+                const node = nodes.get(String(id))
+                return {
+                    id,
+                    name:
+                        node?.name ??
+                        this.labels.unavailable ??
+                        'Selected term is unavailable',
+                }
+            })
+        },
+
+        removeLabel(name) {
+            return (this.labels.remove ?? 'Remove :name').replace(':name', name)
+        },
+
+        removeTerm(id) {
+            if (this.blocked || !this.multiple || !this.isSelected(id)) return
+            // Move focus before Alpine removes the button that invoked this.
+            this.$refs.trigger.focus()
+            this.state = this.withoutTerm(id)
+        },
+
+        get includesAncestors() {
+            return this.multiple && this.selectAncestors
+        },
+
+        ancestorIds(id) {
+            const node = this.nodes.find(
+                (node) => String(node.id) === String(id),
+            )
+            if (!node || node.disabled) return null
+            if (!this.includesAncestors) return []
+            return node.ancestors.every((ancestor) =>
+                this.nodes.some(
+                    (candidate) =>
+                        candidate.id === ancestor && !candidate.disabled,
+                ),
+            )
+                ? node.ancestors
+                : null
+        },
+
+        expandAncestorSelection() {
+            if (
+                this.blocked ||
+                !this.includesAncestors ||
+                !Array.isArray(this.state)
+            )
+                return
+            const values = [...this.state]
+            const selected = new Set(values.map(String))
+            for (const id of this.state) {
+                for (const ancestor of this.ancestorIds(id) ?? []) {
+                    if (!selected.has(String(ancestor))) {
+                        selected.add(String(ancestor))
+                        values.push(ancestor)
+                    }
+                }
+            }
+            // A no-op must not write back into the entangled state watcher.
+            if (values.length !== this.state.length) this.state = values
+        },
+
+        withoutTerm(id) {
+            const removed = new Set([String(id)])
+            if (this.includesAncestors) {
+                for (const node of this.nodes) {
+                    if (
+                        node.ancestors.some(
+                            (ancestor) => String(ancestor) === String(id),
+                        )
+                    )
+                        removed.add(String(node.id))
+                }
+            }
+            return this.state.filter((value) => !removed.has(String(value)))
+        },
+
+        selectedBelowCount(id) {
+            if (!this.multiple || !Array.isArray(this.state)) return 0
+            if (
+                selectionSummary?.state !== this.state ||
+                selectionSummary.nodes !== this.nodes
+            ) {
+                const selected = new Set(this.state.map(String))
+                const counts = new Map()
+                for (const node of this.nodes) {
+                    if (!selected.has(String(node.id))) continue
+                    for (const ancestor of node.ancestors)
+                        counts.set(ancestor, (counts.get(ancestor) ?? 0) + 1)
+                }
+                selectionSummary = {
+                    state: this.state,
+                    nodes: this.nodes,
+                    counts,
+                }
+            }
+            return selectionSummary.counts.get(id) ?? 0
+        },
+
+        selectedBelowLabel(id) {
             return (
-                this.nodes.find(
-                    (node) => String(node.id) === String(this.state),
-                )?.name ??
-                this.labels.unavailable ??
-                'Selected parent is unavailable'
+                this.labels.selected_below ?? ':count selected below'
+            ).replace(':count', this.selectedBelowCount(id))
+        },
+
+        get selectionFeedback() {
+            const count = Array.isArray(this.state)
+                ? this.state.length
+                : this.isSelected(ROOT)
+                  ? 0
+                  : 1
+            return (this.labels.selected ?? ':count terms selected').replace(
+                ':count',
+                count,
             )
         },
 
@@ -210,7 +371,7 @@ export default function taxonomyParentTree({
         },
 
         positionPopup() {
-            const rect = this.$refs.trigger.getBoundingClientRect()
+            const rect = this.$root.getBoundingClientRect()
             const below = window.innerHeight - rect.bottom - 12
             const above = rect.top - 12
             const up = below < 200 && above > below
@@ -240,8 +401,26 @@ export default function taxonomyParentTree({
                     ))
             )
                 return
-            this.state = id
-            this.close()
+            if (this.multiple) {
+                const current = Array.isArray(this.state) ? this.state : []
+                if (id === ROOT) this.state = []
+                else if (this.isSelected(id)) this.state = this.withoutTerm(id)
+                else {
+                    const ancestors = this.ancestorIds(id)
+                    if (ancestors === null) return
+                    const selected = new Set(current.map(String))
+                    this.state = [
+                        ...current,
+                        ...[...ancestors, id].filter(
+                            (value) => !selected.has(String(value)),
+                        ),
+                    ]
+                }
+                this.focusNode(id)
+            } else {
+                this.state = id
+                this.close()
+            }
         },
 
         focusNode(id) {

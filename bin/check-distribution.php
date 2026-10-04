@@ -36,8 +36,12 @@ foreach ([$archive, $composerArchive] as $candidate) {
         'database/migrations/0003_add_position_to_taxonomy_terms_table.php',
         'database/migrations/0004_create_taxonomy_term_assignments_table.php',
         'src/Concerns/HasTaxonomies.php', 'src/Services/TaxonomyAssignmentService.php',
+        'src/Forms/TaxonomySelect.php', 'src/Forms/TaxonomySelectionRule.php',
+        'src/Forms/TaxonomyTreeField.php', 'src/Forms/TaxonomyTreeOptions.php',
+        'resources/lang/en/assignment-tree.php',
         'resources/views/forms/parent-tree-select.blade.php',
         'resources/views/forms/parent-tree-branch.blade.php',
+        'resources/views/forms/selected-term-branch.blade.php',
         'resources/views/components/taxonomy-tree.blade.php',
         'resources/lang/en/parent-tree.php', 'resources/css/taxonomy-controls.css',
         'resources/dist/components/taxonomy-tree.js', 'resources/dist/components/taxonomy-parent-tree.js',
@@ -74,6 +78,9 @@ file_put_contents($consumer . '/.env', "\nDB_CONNECTION=sqlite\nDB_DATABASE={$co
 touch($consumer . '/database/database.sqlite');
 runDistribution(['composer', 'update', '--no-dev', '--no-interaction', '--prefer-dist'], $consumer);
 mkdir($consumer . '/app/Policies', 0755, true);
+mkdir($consumer . '/app/Filament', 0755, true);
+copy($root . '/tests-distribution/ConsumerDeck.php', $consumer . '/app/Models/ConsumerDeck.php');
+copy($root . '/tests-distribution/ConsumerDeckResource.php', $consumer . '/app/Filament/ConsumerDeckResource.php');
 copy($root . '/tests-distribution/ConsumerTermPolicy.php', $consumer . '/app/Policies/ConsumerTermPolicy.php');
 copy($root . '/tests-distribution/ConsumerPanelProvider.php', $consumer . '/app/Providers/ConsumerPanelProvider.php');
 $providers = require $consumer . '/bootstrap/providers.php';
@@ -113,6 +120,7 @@ mkdir($consumer . '/resources/css/filament/admin', 0755, true);
 file_put_contents($consumer . '/resources/css/filament/admin/theme.css', "@import '../../../../vendor/filament/filament/resources/css/theme.css';\n@source '../../../../vendor/eyawiin/filament-taxonomies/resources/views/**/*.blade.php';\n");
 $routes = $consumer . '/routes/web.php';
 file_put_contents($routes, "\n\\Illuminate\\Support\\Facades\\Route::get('/__fixture-state', fn () => \\Eyawiin\\FilamentTaxonomies\\Models\\TaxonomyTerm::orderBy('id')->get(['id', 'taxonomy_id', 'name', 'slug', 'parent_id', 'position']));\n", FILE_APPEND);
+file_put_contents($routes, "\n\\Illuminate\\Support\\Facades\\Route::get('/__field-state', fn () => \\App\\Models\\ConsumerDeck::get()->map(fn (\\App\\Models\\ConsumerDeck \$deck) => ['id' => \$deck->id, 'name' => \$deck->name, 'topics' => \$deck->termsForTaxonomy('consumer-field-topics')->pluck('taxonomy_terms.name')->all(), 'levels' => \$deck->termsForTaxonomy('consumer-field-levels')->pluck('taxonomy_terms.name')->all()]));\n", FILE_APPEND);
 runDistribution(['node', 'bin/build-consumer-theme.js'], $root);
 runDistribution(['node', 'node_modules/@playwright/test/cli.js', 'test', '--config=playwright.consumer.config.js'], $root);
 echo "PASS distribution archive, installation/publishing and clean consumer browser smoke.\n";

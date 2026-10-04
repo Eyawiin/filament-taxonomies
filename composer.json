@@ -83,7 +83,11 @@
             "@build",
             "@php vendor/bin/testbench serve --ansi"
         ],
-        "test:distribution": "@php bin/check-distribution.php"
+        "test:distribution": "@php bin/check-distribution.php",
+        "demo": [
+            "@build",
+            "@php vendor/bin/testbench db:seed --class=\"Workbench\\Database\\Seeders\\DemoSeeder\" --no-interaction"
+        ]
     },
     "extra": {
         "laravel": {

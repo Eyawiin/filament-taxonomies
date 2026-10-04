@@ -89,16 +89,62 @@ test('clean consumer uses published assets for term CRUD, parent selection, repe
     await row(child.id)
         .getByRole('button', { name: 'Delete Term', exact: true })
         .click()
-    const confirmation = page
-        .getByRole('alertdialog')
-        .filter({
-            has: page.getByRole('button', { name: 'Delete', exact: true }),
-        })
+    const confirmation = page.getByRole('alertdialog').filter({
+        has: page.getByRole('button', { name: 'Delete', exact: true }),
+    })
     await confirmation
         .getByRole('button', { name: 'Delete', exact: true })
         .click()
     await expect
         .poll(async () => (await state()).some((term) => term.id === child.id))
         .toBe(false)
+    expect(errors).toEqual([])
+})
+
+test('copied package fields create, reopen and clear assignments through a consumer resource', async ({
+    page,
+}) => {
+    const errors = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    const state = async () => (await page.request.get('/__field-state')).json()
+    await page.goto('/admin/decks/create')
+    await page
+        .getByRole('textbox', { name: /^Name/ })
+        .fill('Installed package deck')
+    const topics = page.locator('.taxonomy-parent-tree').nth(0)
+    const level = page.locator('.taxonomy-parent-tree').nth(1)
+    const open = async (field) => {
+        await field.locator('.taxonomy-parent-trigger').click()
+        await expect(field.locator('input[type=search]')).toBeFocused()
+    }
+    await open(topics)
+    await topics
+        .getByRole('treeitem', { name: 'Topics leaf', exact: true })
+        .click()
+    await page.keyboard.press('Escape')
+    await open(level)
+    await level
+        .getByRole('treeitem', { name: 'Levels leaf', exact: true })
+        .click()
+    await page.getByRole('button', { name: 'Create', exact: true }).click()
+    await expect
+        .poll(async () => (await state())[0]?.topics)
+        .toEqual(['Topics leaf'])
+    const deck = (await state())[0]
+    await page.goto('/admin/decks/' + deck.id + '/edit')
+    await expect(topics.locator('.taxonomy-selection-tags')).toContainText(
+        'Topics leaf',
+    )
+    await expect(level.locator('.taxonomy-parent-trigger')).toContainText(
+        'Levels leaf',
+    )
+    await topics
+        .getByRole('button', { name: 'Remove Topics leaf', exact: true })
+        .click()
+    await page
+        .getByRole('button', { name: 'Save changes', exact: true })
+        .click()
+    await expect.poll(async () => (await state())[0]?.topics).toEqual([])
+    expect((await state())[0].levels).toEqual(['Levels leaf'])
     expect(errors).toEqual([])
 })

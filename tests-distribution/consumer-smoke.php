@@ -48,6 +48,8 @@ try {
 
     require __DIR__ . '/assignment-smoke.php';
     verifyConsumerAssignments();
+    require __DIR__ . '/field-smoke.php';
+    verifyConsumerFields();
 
     // Fresh browser smoke data; not consumer/user data.
     $taxonomy = Taxonomy::create(['name' => 'Browser consumer', 'slug' => 'browser-consumer']);

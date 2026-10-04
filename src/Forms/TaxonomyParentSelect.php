@@ -32,9 +32,18 @@ class TaxonomyParentSelect
         }
 
         $treeService = app(TaxonomyTreeService::class);
-        $nodes = self::treeNodes(
+        $nodes = TaxonomyTreeOptions::flatten(
             TaxonomyIdentity::browserTree($treeService->getTree($taxonomy)),
-            $term === null ? null : (int) $term->getKey(),
+            static function (TaxonomyTerm $candidate, array $ancestors) use ($term): string {
+                if ($term === null) {
+                    return '';
+                }
+                if ($candidate->getKey() === $term->getKey()) {
+                    return __('filament-taxonomies::parent-tree.current');
+                }
+
+                return in_array((int) $term->getKey(), $ancestors, true) ? __('filament-taxonomies::parent-tree.cycle') : '';
+            },
         );
         $availableIds = array_column(array_filter(
             $nodes,
@@ -57,40 +66,5 @@ class TaxonomyParentSelect
                     );
                 },
             );
-    }
-
-    /**
-     * @param  array<array{term: TaxonomyTerm, children: array}>  $nodes
-     * @param  list<int>  $ancestors
-     * @return list<array{id: int, name: string, ancestors: list<int>, hasChildren: bool, disabled: bool, reason: string}>
-     */
-    private static function treeNodes(
-        array $nodes,
-        ?int $currentTermId,
-        array $ancestors = [],
-    ): array {
-        $options = [];
-
-        foreach ($nodes as $node) {
-            $id = (int) $node['term']->getKey();
-            $disabled = $currentTermId !== null && ($id === $currentTermId || in_array($currentTermId, $ancestors, true));
-            $options[] = [
-                'id' => $id,
-                'name' => $node['term']->name,
-                'ancestors' => $ancestors,
-                'hasChildren' => $node['children'] !== [],
-                'disabled' => $disabled,
-                'reason' => $id === $currentTermId
-                    ? __('filament-taxonomies::parent-tree.current')
-                    : ($disabled ? __('filament-taxonomies::parent-tree.cycle') : ''),
-            ];
-            array_push($options, ...self::treeNodes(
-                $node['children'],
-                $currentTermId,
-                [...$ancestors, $id],
-            ));
-        }
-
-        return $options;
     }
 }

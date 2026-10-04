@@ -95,3 +95,9 @@ The user can refresh the existing server; no restart was required. The file is
 ignored by Git and the index remains empty. P1 and these development fixes remain
 uncommitted/unpushed. The previous missing vendor file had no recoverable SQLite
 copy among the checked project files; no historical data restoration is claimed.
+
+## Commit status
+
+P1 and the persistent workbench repair were committed/pushed on `5.x` in `c366c23`
+on 2026-10-04 before P2 implementation, at the user's request. Earlier local-only
+status notes describe the verification point preceding that commit.

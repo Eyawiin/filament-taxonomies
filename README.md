@@ -216,6 +216,126 @@ invalid inputs, rollback and cleanup:
 composer test -- tests/Feature/Assignments --no-coverage
 ```
 
+## Taxonomy fields in resource forms
+
+Use `HasTaxonomies` on the owner model, run the assignment migration, and use
+`TaxonomySelect` in the resource's schema:
+
+```php
+use Eyawiin\FilamentTaxonomies\Forms\TaxonomySelect;
+
+TaxonomySelect::make('topic_ids')
+    ->label('Topics')
+    ->taxonomy('topics') // Exact slug; an integer means an ID.
+    ->multiple(),
+
+TaxonomySelect::make('level_id')
+    ->label('Level')
+    ->taxonomy('levels'),
+```
+
+These are relationship fields: their names are form state paths, not columns on
+the owner. They hydrate assigned IDs and save through the scoped P1 assignment
+service after a new owner has been created. Single state is an ID or `null`;
+multiple state is a list of IDs, with `[]` clearing that taxonomy. Neither field
+changes assignments in other taxonomies. By default selecting a branch assigns
+only that term; its disclosure button expands descendants without selecting them.
+
+For multiple fields, opt into automatic ancestor selection:
+
+```php
+TaxonomySelect::make('topic_ids')
+    ->taxonomy('topics')
+    ->multiple()
+    ->selectAncestors(); // Also accepts a reactive boolean closure.
+```
+
+Selecting a child then assigns every visible, permitted ancestor. It does not
+select siblings or descendants. Removing a parent (in the tree or via its tag X)
+also removes its selected descendants; removing a child retains its parents.
+An unavailable or denied ancestor makes its descendants unselectable in this
+mode. Existing child assignments expand in editable form state when the mode is
+enabled; opening the form does not write assignments, and normal saving persists
+the expanded selection. Programmatic form submissions must include the complete
+ancestor chain; validation checks it again under the taxonomy lock. Read-only and
+disabled fields keep their existing state. Single fields ignore this setting.
+
+Multiple tree options show a checkbox for the term's actual assignment. A parent
+also displays a selected-descendant count, including while collapsed, so its own
+assignment is distinct from selected terms below it. Counts include all assigned
+descendants, including intermediate ancestors. The UI does not claim to remember
+which persisted assignments were selected automatically.
+
+**Enable Filament database transactions on create/edit pages** (or on the panel)
+to make the owner and all relationship fields one atomic save:
+
+```php
+// On your CreateRecord and EditRecord pages:
+protected ?bool $hasDatabaseTransactions = true;
+
+// Alternatively, on the panel:
+$panel->databaseTransactions();
+```
+
+Inside an outer transaction, validation locks the form's visible, writable
+field taxonomies in ascending ID order before native owner writes. Saving checks
+current term visibility and permissions again under the taxonomy lock. A failure
+becomes a field validation error; the outer transaction rolls back the owner and
+other fields. Without an outer transaction, only each assignment service call is
+atomic: earlier owner/field writes can survive a later failure. Custom forms and
+modal actions must wrap validation, owner creation/update and relationship saving
+in the same transaction; actions can use `->databaseTransaction()`.
+
+Use one assignment field per taxonomy per owner. Two different taxonomy fields
+can safely coexist; duplicate writable fields for the same owner/taxonomy are
+rejected during validation. In relationship repeaters the field binds to the row's
+Eloquent owner; each owner must use `HasTaxonomies`. In a plain JSON repeater,
+use `->saved(false)->dehydrated()` for a state-only picker: the selected IDs are
+stored in that JSON row, with no relationship hydration/saving on the root owner.
+The default assignment mode rejects a JSON repeater configuration rather than
+accidentally overwriting root-owner assignments.
+A custom create form must call `$form->model($record)->saveRelationships()` after
+persisting the owner, as native Filament resource pages do.
+
+The consumer resource authorizes owner access. Assignment permission is separate
+from permission to edit the taxonomy or its terms; global model scopes always
+restrict selectable terms. Add your application's assignment policy explicitly:
+
+```php
+TaxonomySelect::make('topic_ids')->taxonomy('topics')->multiple()
+    ->canAssignUsing(fn ($taxonomy, $record): bool =>
+        auth()->user()->can('assignTerms', [$taxonomy, $record]))
+    ->disableTermWhen(fn ($term): bool => $term->slug === 'restricted');
+```
+
+The callbacks can receive `taxonomy`, `record` (`null` on create), and, for
+`disableTermWhen()`, `term`. They must be read-only and deterministic; they run
+while rendering, validating and saving. Denying the whole taxonomy denies clearing
+too. If a user should edit other owner attributes while leaving assignments
+untouched, also configure `->readOnly()` for that user to skip assignment saving.
+Disabled terms remain in the tree with a reason and can be explored, but
+cannot be selected. Disabled, hidden and read-only fields do not save assignments.
+Taxonomy references, multiple mode and callbacks may use closures for reactive
+forms; changing the taxonomy does not silently replace old selection state.
+
+Unavailable selections are shown explicitly and are never silently discarded.
+A single field opening an owner with several existing assignments requires an
+explicit new single choice or clearing. Scoped-out existing assignments block a
+full sync, including clearing, to protect data the caller cannot see. Handle those
+through an authorized backend workflow. Current browser term IDs are positive
+integers up to `2^53 - 1`; larger IDs remain unavailable rather than being rounded.
+
+The tree supports search, RTL, disabled/read-only state, keyboard navigation and
+independent expansion. Arrow keys move focus; Enter/Space select or toggle a term;
+Home then Enter/Space clears; Escape closes and returns focus to the trigger.
+Multiple mode displays selected terms as removable Filament badges grouped by the
+tree hierarchy. Parents appear once with their descendants nested inside the group.
+Unassigned ancestors use plain context labels; selected ancestors have their own
+removable badges. Context labels do not add assignments. Each X removes
+only that term in independent mode, or its selected branch in ancestor mode;
+save the form to persist the change. The tree stays open when choosing terms and
+exposes checked states, descendant summaries and a live count.
+
 ## Authorization and visibility
 
 Taxonomy CRUD keeps Filament's standard policy abilities. Listing requires
@@ -380,6 +500,44 @@ are in [F6 acceptance](.github/F6_ACCEPTANCE.md).
 
 Formatting CI runs `pint --test` without committing or pushing changes.
 All F0 pending specifications have been promoted into required suites.
+
+## Local backend playground
+
+From the package checkout in WSL:
+
+```bash
+composer demo
+composer serve
+```
+
+`composer demo` prepares persistent workbench storage, builds/migrates the
+workbench and seeds **Demo Topics** and **Demo Levels**, each with 12 terms across
+three levels, plus four Decks. Open `/admin/decks` to create/edit Decks and try
+multiple Topics and a single Level. Re-running adds missing fixture entries and
+preserves existing names and Deck assignments. It does not reset the database.
+
+To generate more random Decks after seeding, use Tinker:
+
+```php
+Workbench\Database\Factories\DeckFactory::new()->withDemoTerms()->count(10)->create();
+```
+
+`DeckFactory::new()->create()` makes an unrelated Deck with no assignments;
+`withDemoTerms()` attaches terms from the two existing demo taxonomies. The
+`DemoTaxonomyFactory` has `topics()` and `levels()` states that create nested terms
+through the managed tree service. These models, factories, seeders and the Deck
+resource belong to the local workbench and are excluded from package archives.
+
+### Trying ancestor selection in the workbench
+
+The workbench Topics field uses `->multiple()->selectAncestors()` in `DeckResource`.
+Open `/admin/decks/create` or an existing Deck.
+Choose Vocabulary under Languages / English: all three become checked and appear
+as removable tags. Remove English to remove English and Vocabulary while keeping
+Languages. To configure independent selection, remove `->selectAncestors()` or
+set it to `false` in the resource schema. This is a field configuration option;
+backend users do not see a mode toggle.
+
 
 ## Upgrade notes for the foundation cleanup
 

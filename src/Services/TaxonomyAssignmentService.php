@@ -53,6 +53,28 @@ class TaxonomyAssignmentService
         });
     }
 
+    /**
+     * IDs only, including scoped-out assigned terms, so a form never silently truncates state.
+     * Authorize the owner and taxonomy before exposing these opaque IDs.
+     *
+     * @return list<int>
+     */
+    public function assignedTermIds(Model $owner, mixed $taxonomy): array
+    {
+        $this->assertConnection($owner);
+        if (! in_array(HasTaxonomies::class, class_uses_recursive($owner), true) || ! $owner->exists || $owner->isDirty($owner->getKeyName())) {
+            throw new InvalidTaxonomyAssignmentException('The owner must use HasTaxonomies and have an unchanged persisted identity.');
+        }
+        [$type, $key] = $this->identity($owner);
+        $owner->newQuery()->whereKey($key)->firstOrFail([$owner->qualifyColumn('*')]);
+        $resolved = $this->resolveTaxonomy($taxonomy);
+
+        return $this->normalizeTerms($this->assignments($type, $key)
+            ->join('taxonomy_terms', 'taxonomy_terms.id', '=', 'taxonomy_term_assignments.taxonomy_term_id')
+            ->where('taxonomy_terms.taxonomy_id', $resolved->getKey())->orderBy('taxonomy_terms.id')
+            ->pluck('taxonomy_term_assignments.taxonomy_term_id')->all());
+    }
+
     public function assertConnection(Model $owner): void
     {
         $default = DB::connection()->getName();
