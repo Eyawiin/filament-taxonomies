@@ -15,6 +15,7 @@ use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Schemas\TaxonomyTermForm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
 use Eyawiin\FilamentTaxonomies\Support\TaxonomyIdentity;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -171,7 +172,8 @@ class ManageTaxonomyTerms extends Page
         }
 
         $id = $this->normalizeTermId($value);
-        $parent = $id === null ? null : $this->getRecord()->terms()->lockForUpdate()->find($id, [(new TaxonomyTerm)->qualifyColumn('*')]);
+        $terms = $this->getRecord()->terms();
+        $parent = $id === null ? null : $terms->lockForUpdate()->find($id, [$terms->getRelated()->qualifyColumn('*')]);
 
         if ($parent === null) {
             throw ValidationException::withMessages([
@@ -192,7 +194,7 @@ class ManageTaxonomyTerms extends Page
 
         $id = $this->normalizeTermId($arguments['term'] ?? null);
         if ($id === null) {
-            throw (new ModelNotFoundException)->setModel(TaxonomyTerm::class);
+            throw (new ModelNotFoundException)->setModel(TaxonomyModels::term());
         }
 
         return $query->findOrFail($id, [$query->qualifyColumn('*')]);

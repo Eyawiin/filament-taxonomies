@@ -10,6 +10,7 @@ use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyParentException;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Support\TaxonomyIdentity;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +30,7 @@ class TaxonomyTreeService
         $visitedIds = $parentIds;
 
         while (true) {
-            $query = TaxonomyTerm::query();
+            $query = TaxonomyModels::term()::query();
             $children = $query
                 ->where($query->qualifyColumn('taxonomy_id'), $term->taxonomy_id)
                 ->whereIn($query->qualifyColumn('parent_id'), $parentIds)
@@ -63,6 +64,57 @@ class TaxonomyTreeService
         }
 
         return $descendantIds;
+    }
+
+    /**
+     * For read filters: each requested term with, optionally, every term below it, using one
+     * query. Missing, hidden and foreign terms are left out, as are terms only reachable
+     * through a hidden ancestor, matching the displayed tree.
+     *
+     * @param  list<int>  $termIds
+     * @return array<int, list<int>> Keyed by requested term ID; each list starts with that term.
+     */
+    public function getVisibleSubtreeIds(Taxonomy $taxonomy, array $termIds, bool $includeDescendants = true): array
+    {
+        $this->assertIdentity($taxonomy);
+        $query = TaxonomyModels::term()::query();
+        $parents = $query->where($query->qualifyColumn('taxonomy_id'), $taxonomy->getKey())
+            ->toBase()->pluck($query->qualifyColumn('parent_id'), $query->getModel()->getQualifiedKeyName())->all();
+
+        $visible = [];
+        $children = [];
+        foreach ($parents as $id => $parent) {
+            $id = TaxonomyIdentity::normalize($id);
+            if ($id === null) {
+                continue;
+            }
+            $visible[$id] = true;
+            $parentId = $parent === null ? null : TaxonomyIdentity::normalize($parent);
+            if ($parentId !== null) {
+                $children[$parentId][] = $id;
+            }
+        }
+
+        $subtrees = [];
+        foreach ($termIds as $termId) {
+            if (! isset($visible[$termId])) {
+                continue;
+            }
+            $subtree = [$termId];
+            $seen = [$termId => true];
+            // Breadth-first; $seen also stops at cycles in imported data.
+            for ($index = 0; $includeDescendants && $index < count($subtree); $index++) {
+                foreach ($children[$subtree[$index]] ?? [] as $child) {
+                    if (! isset($seen[$child])) {
+                        $seen[$child] = true;
+                        $subtree[] = $child;
+                    }
+                }
+            }
+            $subtrees[$termId] = $subtree;
+        }
+
+        return $subtrees;
     }
 
     /**
@@ -107,7 +159,7 @@ class TaxonomyTreeService
     {
         $this->assertConnection($taxonomy);
         $this->assertIdentity($taxonomy);
-        $parents = TaxonomyTerm::withoutGlobalScopes()
+        $parents = TaxonomyModels::term()::withoutGlobalScopes()
             ->where('taxonomy_id', $taxonomy->getKey())
             ->orderBy('id')
             ->toBase()->pluck('parent_id', 'id')->all();
@@ -182,7 +234,7 @@ class TaxonomyTreeService
         int $taxonomyId,
         ?int $parentId,
     ): int {
-        $query = TaxonomyTerm::query();
+        $query = TaxonomyModels::term()::query();
         $maxPosition = $query
             ->where($query->qualifyColumn('taxonomy_id'), $taxonomyId)
             ->where($query->qualifyColumn('parent_id'), $parentId)
@@ -233,7 +285,8 @@ class TaxonomyTreeService
             }
             $parentId = $destination === null ? null : (int) $destination->getKey();
             $siblings = $this->siblingIds($terms, $parentId);
-            $term = new TaxonomyTerm([
+            $termClass = TaxonomyModels::term();
+            $term = new $termClass([
                 'taxonomy_id' => $taxonomyId, 'parent_id' => $parentId,
                 'name' => $name, 'slug' => $slug, 'position' => count($siblings),
             ]);
@@ -306,9 +359,10 @@ class TaxonomyTreeService
                 $index = count($this->siblingIds($terms, (int) $parent->getKey(), (int) $source->getKey()));
             } else {
                 $parentId = $this->parentId($freshTarget);
-                $parent = $parentId === null ? null : TaxonomyTerm::query()
-                    ->where((new TaxonomyTerm)->qualifyColumn('taxonomy_id'), $taxonomyId)
-                    ->lockForUpdate()->findOrFail($parentId, [(new TaxonomyTerm)->qualifyColumn('*')]);
+                $parentQuery = TaxonomyModels::term()::query();
+                $parent = $parentId === null ? null : $parentQuery
+                    ->where($parentQuery->qualifyColumn('taxonomy_id'), $taxonomyId)
+                    ->lockForUpdate()->findOrFail($parentId, [$parentQuery->qualifyColumn('*')]);
                 $siblings = $this->siblingIds($terms, $parentId, (int) $source->getKey());
                 $index = array_search((int) $freshTarget->getKey(), $siblings, true);
                 if ($index === false) {
@@ -350,7 +404,7 @@ class TaxonomyTreeService
                 }
                 $provided[] = $normalized;
             }
-            $visibleQuery = TaxonomyTerm::query();
+            $visibleQuery = TaxonomyModels::term()::query();
             $visibleQuery->where($visibleQuery->qualifyColumn('taxonomy_id'), $taxonomyId)
                 ->where($visibleQuery->qualifyColumn('parent_id'), $parentId)->lockForUpdate();
             $visible = array_values(array_unique(array_map(
@@ -424,7 +478,8 @@ class TaxonomyTreeService
 
         // One attempt: replaying callbacks could replay consumer observers or external effects.
         return DB::connection()->transaction(function () use ($taxonomyId, $operation): mixed {
-            $taxonomy = Taxonomy::query()->lockForUpdate()->findOrFail($taxonomyId, [(new Taxonomy)->qualifyColumn('*')]);
+            $query = TaxonomyModels::taxonomy()::query();
+            $taxonomy = $query->lockForUpdate()->findOrFail($taxonomyId, [$query->qualifyColumn('*')]);
 
             return $operation($taxonomy);
         }, 1);
@@ -442,7 +497,9 @@ class TaxonomyTreeService
     private function assertConnection(Model $model): void
     {
         $default = DB::getDefaultConnection();
-        foreach ([$model, new Taxonomy, new TaxonomyTerm] as $candidate) {
+        $taxonomyClass = TaxonomyModels::taxonomy();
+        $termClass = TaxonomyModels::term();
+        foreach ([$model, new $taxonomyClass, new $termClass] as $candidate) {
             if ($candidate->getConnection()->getName() !== $default) {
                 throw new LogicException('Managed taxonomy writes require taxonomy and term models on the default database connection.');
             }
@@ -457,7 +514,7 @@ class TaxonomyTreeService
             throw new InvalidTaxonomyParentException('The term must belong to the owning taxonomy.');
         }
 
-        $query = TaxonomyTerm::query();
+        $query = TaxonomyModels::term()::query();
         $query->where($query->qualifyColumn('taxonomy_id'), $taxonomyId);
         if ($lock) {
             $query->lockForUpdate();
@@ -471,7 +528,7 @@ class TaxonomyTreeService
     {
         // Structural integrity must include scoped-out ancestors and siblings.
         // These rows are never returned as UI options or selectable input records.
-        $query = TaxonomyTerm::withoutGlobalScopes()->where('taxonomy_id', $taxonomyId)->orderBy('position')->orderBy('name')->orderBy('id');
+        $query = TaxonomyModels::term()::withoutGlobalScopes()->where('taxonomy_id', $taxonomyId)->orderBy('position')->orderBy('name')->orderBy('id');
         if ($lock) {
             $query->lockForUpdate();
         }
@@ -585,7 +642,7 @@ class TaxonomyTreeService
     {
         foreach ($termIds as $position => $termId) {
             // Bulk maintenance deliberately does not fire sibling model save events.
-            TaxonomyTerm::withoutGlobalScopes()->where('taxonomy_id', $taxonomyId)
+            TaxonomyModels::term()::withoutGlobalScopes()->where('taxonomy_id', $taxonomyId)
                 ->where('parent_id', $parentId)->whereKey($termId)->update(['position' => $position]);
         }
     }
@@ -593,7 +650,7 @@ class TaxonomyTreeService
     /** @param list<int|string> $termIds */
     private function assertNoForeignChildren(int $taxonomyId, array $termIds): void
     {
-        if ($termIds !== [] && TaxonomyTerm::withoutGlobalScopes()->where('taxonomy_id', '!=', $taxonomyId)
+        if ($termIds !== [] && TaxonomyModels::term()::withoutGlobalScopes()->where('taxonomy_id', '!=', $taxonomyId)
             ->whereIn('parent_id', $termIds)->lockForUpdate()->first() !== null) {
             throw new InvalidTaxonomyParentException('Deletion would affect a term belonging to another taxonomy.');
         }
@@ -620,7 +677,7 @@ class TaxonomyTreeService
     private function reload(TaxonomyTerm $term): TaxonomyTerm
     {
         // refresh() uses a snapshot read, which can be stale in an outer RR transaction.
-        $query = TaxonomyTerm::query();
+        $query = TaxonomyModels::term()::query();
 
         return $query->where($query->qualifyColumn('taxonomy_id'), $term->taxonomy_id)
             ->lockForUpdate()->findOrFail($term->getKey(), [$query->qualifyColumn('*')]);

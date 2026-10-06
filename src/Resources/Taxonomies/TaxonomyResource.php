@@ -12,6 +12,7 @@ use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\ListTaxonomies;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\ManageTaxonomyTerms;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Schemas\TaxonomyForm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Tables\TaxonomiesTable;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
 use Filament\Resources\Resource;
@@ -25,13 +26,17 @@ use UnitEnum;
 
 class TaxonomyResource extends Resource
 {
-    protected static ?string $model = Taxonomy::class;
-
     protected static ?string $recordTitleAttribute = 'name';
 
     protected static string | BackedEnum | null $navigationIcon = 'heroicon-o-rectangle-stack';
 
     protected static ?string $slug = 'taxonomies';
+
+    /** @return class-string<Model> */
+    public static function getModel(): string
+    {
+        return static::$model ?? TaxonomyModels::taxonomy();
+    }
 
     public static function getModelLabel(): string
     {

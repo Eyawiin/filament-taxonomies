@@ -40,14 +40,14 @@ every package update:
 php artisan filament:assets
 ```
 
-The optional reserved config file currently has no settings:
+Publish the config file only to use [your own models](#using-your-own-models):
 
 ```bash
 php artisan vendor:publish --tag="filament-taxonomies-config"
 ```
 
 It publishes `config/filament-taxonomies.php` and merges under
-`config('filament-taxonomies')`. Publishing it is not required.
+`config('filament-taxonomies')`.
 The interactive `php artisan filament-taxonomies:install` command publishes
 config/migrations and offers to run migrations. It does not install the panel
 plugin or build your theme; follow those steps below.
@@ -62,6 +62,10 @@ This is the contents of the published config file:
 
 ```php
 return [
+    'models' => [
+        'taxonomy' => Eyawiin\FilamentTaxonomies\Models\Taxonomy::class,
+        'term' => Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm::class,
+    ],
 ];
 ```
 
@@ -123,6 +127,39 @@ cycle.", are English sentences shown through Laravel's JSON translations.
 Translate them in your application's `lang/{locale}.json` with the English
 sentence as the key.
 
+### Using your own models
+
+To add attributes or relationships, for example an image or release date for
+each term, extend the package models and register them in the published config
+file:
+
+```php
+namespace App\Models;
+
+use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
+
+class Category extends TaxonomyTerm
+{
+    protected $casts = ['released_at' => 'date'];
+}
+```
+
+```php
+// config/filament-taxonomies.php
+'models' => [
+    'taxonomy' => Eyawiin\FilamentTaxonomies\Models\Taxonomy::class,
+    'term' => App\Models\Category::class,
+],
+```
+
+The resource, forms, relations, tree service and assignment API then use your
+classes. Custom models must extend the package models and keep their tables
+(`taxonomies` and `taxonomy_terms`); add columns with your own migration.
+Register global scopes on your classes, because Eloquent applies them per class.
+A policy registered for a package model also applies to its subclasses. Table
+names are fixed: the migrations, assignment queries and slug constraint
+diagnostics depend on them.
+
 ## Assigning terms to Eloquent models
 
 Publish migrations again and run `php artisan migrate` after updating to this
@@ -166,6 +203,40 @@ eager loading and query constraints. Write through the trait methods or
 raw imports bypass the managed checks. When an owner query joins other tables,
 select the owner table’s columns (for example `articles.*`) so Eloquent hydrates
 the owner’s own ID and attributes.
+
+### Filtering owners by terms
+
+`HasTaxonomies` adds query scopes for filters such as API query parameters. Pass
+the taxonomy (model, ID or slug) and one or more term models or IDs:
+
+```php
+// Owners assigned to Pokémon or to any term below it, such as Base Set.
+Card::whereHasTaxonomyTerms('categories', $pokemon, includeDescendants: true)->get();
+
+// Owners assigned to at least one of several terms.
+Card::whereHasTaxonomyTerms('categories', [$coinsId, $stampsId])->get();
+
+// A match in every subtree, combined with a filter on another taxonomy.
+Card::whereHasAllTaxonomyTerms('categories', [$pokemon, $firstEdition], includeDescendants: true)
+    ->whereHasTaxonomyTerms('conditions', [$mintId])
+    ->get();
+```
+
+Without `includeDescendants`, only exact assignments match. Descendants are
+resolved with one query, however deep the tree. Unknown, foreign and hidden
+terms match nothing, as do terms reachable only through a hidden ancestor, just
+like in the displayed tree. Malformed term values throw
+`InvalidTaxonomyAssignmentException`, so validate request input first. An empty
+term list matches no owners in `whereHasTaxonomyTerms()` and adds no condition
+in `whereHasAllTaxonomyTerms()`, so apply the scopes only when a filter is set:
+
+```php
+Card::query()
+    ->when($request->filled('category'), fn ($query) => $query->whereHasTaxonomyTerms(
+        'categories', (array) $request->input('category'), includeDescendants: true,
+    ))
+    ->paginate();
+```
 
 Owners must be saved, have an unchanged positive integer, UUID, or ULID primary
 key, and use the default database connection. UUID/ULID models must
@@ -678,6 +749,11 @@ navigation with the [plugin options](#configuring-the-plugin) instead.
 files, so republish customized views: the management page passes a translated
 error message to its tree script. The unused, empty
 `resources/dist/filament-taxonomies.js` bundle has been removed.
+
+The resource now takes its model from the `models` config; a resource subclass
+can still set `$model`. Code that adds global scopes to the package models only
+affects those classes: once you configure your own models, register the scopes
+there.
 
 ## Changelog
 

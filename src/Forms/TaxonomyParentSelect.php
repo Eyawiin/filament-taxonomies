@@ -7,6 +7,7 @@ use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
 use Eyawiin\FilamentTaxonomies\Support\TaxonomyIdentity;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 
@@ -28,7 +29,8 @@ class TaxonomyParentSelect
 
         if ($term !== null) {
             abort_if(TaxonomyIdentity::normalize($term->getRawOriginal($term->getKeyName())) === null, 404);
-            $term = $taxonomy->terms()->findOrFail($term->getKey(), [(new TaxonomyTerm)->qualifyColumn('*')]);
+            $terms = $taxonomy->terms();
+            $term = $terms->findOrFail($term->getKey(), [$terms->getRelated()->qualifyColumn('*')]);
         }
 
         $treeService = app(TaxonomyTreeService::class);
@@ -57,7 +59,7 @@ class TaxonomyParentSelect
             ->nullable()
             ->rules(['integer', 'min:1', Rule::in($availableIds)])
             ->exists(
-                table: TaxonomyTerm::class,
+                table: TaxonomyModels::term(),
                 column: 'id',
                 modifyRuleUsing: static fn (Exists $rule): Exists => $rule->where(
                     'taxonomy_id',

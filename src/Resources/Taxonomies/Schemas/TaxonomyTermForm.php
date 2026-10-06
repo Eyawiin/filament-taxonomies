@@ -6,6 +6,7 @@ use Eyawiin\FilamentTaxonomies\Forms\TaxonomyParentSelect;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 use Illuminate\Validation\Rules\Unique;
@@ -30,7 +31,7 @@ class TaxonomyTermForm
             TextInput::make('slug')
                 ->label(__('filament-taxonomies::taxonomies.fields.slug'))
                 ->unique(
-                    table: TaxonomyTerm::class,
+                    table: TaxonomyModels::term(),
                     ignorable: $term,
                     ignoreRecord: false,
                     modifyRuleUsing: fn (Unique $rule): Unique => $rule->where('taxonomy_id', $taxonomy->getKey()),

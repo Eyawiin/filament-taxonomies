@@ -8,6 +8,7 @@ use Eyawiin\FilamentTaxonomies\Exceptions\InvalidTaxonomyAssignmentException;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Support\TaxonomyIdentity;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +44,7 @@ class TaxonomyAssignmentService
     public function sync(Model $owner, mixed $taxonomy, iterable $termIds): void
     {
         $this->mutate($owner, $taxonomy, $termIds, function (Builder $assignments, array $selected, array $current, Taxonomy $fresh, string $type, string $key): void {
-            $inTaxonomy = TaxonomyTerm::withoutGlobalScopes()->where('taxonomy_id', $fresh->getKey())
+            $inTaxonomy = TaxonomyModels::term()::withoutGlobalScopes()->where('taxonomy_id', $fresh->getKey())
                 ->whereIn('id', $current)->lockForUpdate()->pluck('id')->all();
             // A scoped consumer cannot silently erase assignments it cannot see.
             $this->validateTerms($fresh, $inTaxonomy);
@@ -78,7 +79,9 @@ class TaxonomyAssignmentService
     public function assertConnection(Model $owner): void
     {
         $default = DB::connection()->getName();
-        foreach ([$owner, new Taxonomy, new TaxonomyTerm] as $model) {
+        $taxonomyClass = TaxonomyModels::taxonomy();
+        $termClass = TaxonomyModels::term();
+        foreach ([$owner, new $taxonomyClass, new $termClass] as $model) {
             if ($model->getConnection()->getName() !== $default) {
                 throw new InvalidTaxonomyAssignmentException('Assignments require the default database connection.');
             }
@@ -88,6 +91,7 @@ class TaxonomyAssignmentService
     /** Integer references are IDs; string references are exact slugs, including numeric slugs. */
     public function resolveTaxonomy(mixed $taxonomy): Taxonomy
     {
+        $query = TaxonomyModels::taxonomy()::query();
         if ($taxonomy instanceof Taxonomy) {
             $this->assertConnection($taxonomy);
             $id = TaxonomyIdentity::normalize($taxonomy->getRawOriginal($taxonomy->getKeyName()));
@@ -95,19 +99,18 @@ class TaxonomyAssignmentService
                 throw new InvalidTaxonomyAssignmentException('A taxonomy must have an unchanged persisted identity.');
             }
 
-            return Taxonomy::query()->whereKey($id)->firstOrFail([(new Taxonomy)->qualifyColumn('*')]);
+            return $query->whereKey($id)->firstOrFail([$query->qualifyColumn('*')]);
         }
         if (is_int($taxonomy)) {
             if (TaxonomyIdentity::normalize($taxonomy) === null) {
                 throw new InvalidTaxonomyAssignmentException('A taxonomy ID must be a positive native integer.');
             }
 
-            return Taxonomy::query()->whereKey($taxonomy)->firstOrFail([(new Taxonomy)->qualifyColumn('*')]);
+            return $query->whereKey($taxonomy)->firstOrFail([$query->qualifyColumn('*')]);
         }
         if (! is_string($taxonomy) || $taxonomy === '' || mb_strlen($taxonomy) > 255) {
             throw new InvalidTaxonomyAssignmentException('A taxonomy slug must be nonempty and at most 255 characters.');
         }
-        $query = Taxonomy::query();
         $resolved = $query->where($query->qualifyColumn('slug'), $taxonomy)->firstOrFail([$query->qualifyColumn('*')]);
         if ($resolved->slug !== $taxonomy) {
             throw new InvalidTaxonomyAssignmentException('A taxonomy slug must match exactly.');
@@ -123,6 +126,35 @@ class TaxonomyAssignmentService
         [$type, $key] = $this->identity($owner);
         $this->assignments($type, $key)->delete();
         $owner->unsetRelation('taxonomyTerms');
+    }
+
+    /**
+     * Term IDs for an owner filter: the requested terms and, optionally, every visible term
+     * below them. Missing, hidden and foreign terms match nothing.
+     *
+     * @param  Taxonomy|int|string  $taxonomy
+     * @param  TaxonomyTerm|int|string|iterable<TaxonomyTerm|int|string>  $terms
+     * @return list<int>
+     */
+    public function filterTermIds(mixed $taxonomy, mixed $terms, bool $includeDescendants = false): array
+    {
+        return array_values(array_unique(array_merge(...$this->filterTermIdGroups($taxonomy, $terms, $includeDescendants))));
+    }
+
+    /**
+     * Like filterTermIds(), with one group per requested term for "all of these terms" filters.
+     *
+     * @param  Taxonomy|int|string  $taxonomy
+     * @param  TaxonomyTerm|int|string|iterable<TaxonomyTerm|int|string>  $terms
+     * @return list<list<int>>
+     */
+    public function filterTermIdGroups(mixed $taxonomy, mixed $terms, bool $includeDescendants = false): array
+    {
+        $requested = $this->normalizeFilterTerms($terms);
+        $subtrees = app(TaxonomyTreeService::class)
+            ->getVisibleSubtreeIds($this->resolveTaxonomy($taxonomy), $requested, $includeDescendants);
+
+        return array_map(static fn (int $id): array => $subtrees[$id] ?? [], $requested);
     }
 
     /**
@@ -171,6 +203,26 @@ class TaxonomyAssignmentService
     }
 
     /**
+     * Filters accept models as well as IDs and ignore repeated terms.
+     *
+     * @return list<int>
+     */
+    private function normalizeFilterTerms(mixed $terms): array
+    {
+        $values = is_iterable($terms) ? $terms : [$terms];
+        $ids = [];
+        foreach ($values as $value) {
+            $id = TaxonomyIdentity::normalize($value instanceof TaxonomyTerm ? $value->getRawOriginal($value->getKeyName()) : $value);
+            if ($id === null) {
+                throw new InvalidTaxonomyAssignmentException('Filter terms must be persisted term models or positive integer IDs.');
+            }
+            $ids[$id] = $id;
+        }
+
+        return array_values($ids);
+    }
+
+    /**
      * @param  iterable<int|string>  $values
      * @return list<int>
      */
@@ -191,7 +243,7 @@ class TaxonomyAssignmentService
     /** @param array<int, int|string> $ids */
     private function validateTerms(Taxonomy $taxonomy, array $ids): void
     {
-        $query = TaxonomyTerm::query();
+        $query = TaxonomyModels::term()::query();
         $visible = $query->where($query->qualifyColumn('taxonomy_id'), $taxonomy->getKey())
             ->whereIn($query->qualifyColumn('id'), $ids)->lockForUpdate()->get([$query->qualifyColumn('id')])
             ->pluck('id')->unique()->all();

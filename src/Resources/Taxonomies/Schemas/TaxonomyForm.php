@@ -2,7 +2,7 @@
 
 namespace Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Schemas;
 
-use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
@@ -20,7 +20,7 @@ class TaxonomyForm
 
                 TextInput::make('slug')
                     ->label(__('filament-taxonomies::taxonomies.fields.slug'))
-                    ->unique(table: Taxonomy::class, ignoreRecord: true)
+                    ->unique(table: TaxonomyModels::taxonomy(), ignoreRecord: true)
                     ->required()
                     ->maxLength(255),
             ]);

@@ -2,6 +2,7 @@
 
 namespace Eyawiin\FilamentTaxonomies\Models;
 
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,6 +17,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class TaxonomyTerm extends Model
 {
+    // Explicit, so configured subclasses keep the package table.
+    protected $table = 'taxonomy_terms';
+
     protected $fillable = [
         'taxonomy_id',
         'parent_id',
@@ -29,7 +33,7 @@ class TaxonomyTerm extends Model
      */
     public function taxonomy(): BelongsTo
     {
-        return $this->belongsTo(Taxonomy::class);
+        return $this->belongsTo(TaxonomyModels::taxonomy(), 'taxonomy_id');
     }
 
     /**
@@ -37,7 +41,7 @@ class TaxonomyTerm extends Model
      */
     public function parent(): BelongsTo
     {
-        return $this->belongsTo(self::class, 'parent_id');
+        return $this->belongsTo(TaxonomyModels::term(), 'parent_id');
     }
 
     /**
@@ -45,6 +49,6 @@ class TaxonomyTerm extends Model
      */
     public function children(): HasMany
     {
-        return $this->hasMany(self::class, 'parent_id');
+        return $this->hasMany(TaxonomyModels::term(), 'parent_id');
     }
 }

@@ -3,6 +3,7 @@
 namespace Eyawiin\FilamentTaxonomies\Models;
 
 use Eyawiin\FilamentTaxonomies\Support\TaxonomyIdentity;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -13,6 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Taxonomy extends Model
 {
+    // Explicit, so configured subclasses keep the package table.
+    protected $table = 'taxonomies';
+
     protected $fillable = [
         'name',
         'slug',
@@ -32,6 +36,6 @@ class Taxonomy extends Model
      */
     public function terms(): HasMany
     {
-        return $this->hasMany(TaxonomyTerm::class);
+        return $this->hasMany(TaxonomyModels::term(), 'taxonomy_id');
     }
 }
