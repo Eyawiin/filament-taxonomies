@@ -99,19 +99,19 @@ class TaxonomyAssignmentService
                 throw new InvalidTaxonomyAssignmentException('A taxonomy must have an unchanged persisted identity.');
             }
 
-            return $query->whereKey($id)->firstOrFail([$query->qualifyColumn('*')]);
+            return $query->whereKey($id)->firstOrFail([$query->getModel()->qualifyColumn('*')]);
         }
         if (is_int($taxonomy)) {
             if (TaxonomyIdentity::normalize($taxonomy) === null) {
                 throw new InvalidTaxonomyAssignmentException('A taxonomy ID must be a positive native integer.');
             }
 
-            return $query->whereKey($taxonomy)->firstOrFail([$query->qualifyColumn('*')]);
+            return $query->whereKey($taxonomy)->firstOrFail([$query->getModel()->qualifyColumn('*')]);
         }
         if (! is_string($taxonomy) || $taxonomy === '' || mb_strlen($taxonomy) > 255) {
             throw new InvalidTaxonomyAssignmentException('A taxonomy slug must be nonempty and at most 255 characters.');
         }
-        $resolved = $query->where($query->qualifyColumn('slug'), $taxonomy)->firstOrFail([$query->qualifyColumn('*')]);
+        $resolved = $query->where($query->qualifyColumn('slug'), $taxonomy)->firstOrFail([$query->getModel()->qualifyColumn('*')]);
         if ($resolved->slug !== $taxonomy) {
             throw new InvalidTaxonomyAssignmentException('A taxonomy slug must match exactly.');
         }
@@ -160,6 +160,7 @@ class TaxonomyAssignmentService
     /**
      * @param  Taxonomy|int|string  $taxonomy
      * @param  iterable<int|string>  $termIds
+     * @param  Closure(Builder, list<int>, list<int>, Taxonomy, string, string): void  $operation  Receives the selected and current term IDs.
      */
     private function mutate(Model $owner, mixed $taxonomy, iterable $termIds, Closure $operation): void
     {

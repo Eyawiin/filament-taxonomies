@@ -1,0 +1,16 @@
+{
+    "A drop target must be a different term in the same taxonomy.": "Das Ablageziel muss ein anderer Begriff derselben Taxonomie sein.",
+    "Deletion would affect a term belonging to another taxonomy.": "Das Löschen würde einen Begriff einer anderen Taxonomie betreffen.",
+    "Sibling IDs must be positive integers.": "Die IDs der Geschwisterbegriffe müssen positive ganze Zahlen sein.",
+    "The affected hierarchy contains a cycle.": "Die betroffene Hierarchie enthält einen Zyklus.",
+    "The affected hierarchy contains a missing or foreign parent.": "Die betroffene Hierarchie enthält einen fehlenden oder fremden übergeordneten Begriff.",
+    "The affected hierarchy contains an unsupported parent identity.": "Die betroffene Hierarchie enthält eine nicht unterstützte ID eines übergeordneten Begriffs.",
+    "The affected hierarchy contains an unsupported term identity.": "Die betroffene Hierarchie enthält eine nicht unterstützte Begriffs-ID.",
+    "The affected sibling group contains an unsupported identity.": "Die betroffene Geschwistergruppe enthält eine nicht unterstützte ID.",
+    "The drop target is no longer in its sibling group.": "Das Ablageziel befindet sich nicht mehr in seiner Geschwistergruppe.",
+    "The order must contain every visible sibling exactly once, with no hidden siblings.": "Die Reihenfolge muss jeden sichtbaren Geschwisterbegriff genau einmal enthalten und darf keine ausgeblendeten enthalten.",
+    "The parent must belong to the taxonomy being reordered.": "Der übergeordnete Begriff muss zu der Taxonomie gehören, die neu sortiert wird.",
+    "The selected term cannot be used as the parent of this term.": "Der gewählte Begriff kann nicht als übergeordneter Begriff dieses Begriffs verwendet werden.",
+    "The term must belong to the owning taxonomy.": "Der Begriff muss zu seiner eigenen Taxonomie gehören.",
+    "The term position is outside the destination sibling group.": "Die Position des Begriffs liegt außerhalb der Geschwistergruppe am Ziel."
+}

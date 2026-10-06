@@ -21,7 +21,6 @@ use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Query\Expression;
 use UnitEnum;
 
 class TaxonomyResource extends Resource
@@ -84,7 +83,7 @@ class TaxonomyResource extends Resource
         $query = parent::getEloquentQuery();
 
         // Explicit distinct key also makes Laravel's pagination count unique records.
-        return $query->addSelect($query->qualifyColumn('*'))
+        return $query->addSelect($query->getModel()->qualifyColumn('*'))
             ->distinct([$query->getModel()->getQualifiedKeyName()])
             ->whereBetween($query->getModel()->getQualifiedKeyName(), [1, PHP_INT_MAX]);
     }
@@ -106,9 +105,13 @@ class TaxonomyResource extends Resource
      */
     public static function countDistinctTerms(Builder $query): Builder
     {
-        $key = $query->getQuery()->getGrammar()->wrap($query->getModel()->getQualifiedKeyName());
+        $base = $query->getQuery();
+        $key = $base->getGrammar()->wrap($query->getModel()->getQualifiedKeyName());
+        /** @var literal-string $count Built only from the model's own key name, never from input. */
+        $count = "count(distinct {$key})";
 
-        return $query->select(new Expression("count(distinct {$key})"));
+        // select() must replace the count column; withCount keeps only the first one.
+        return $query->select($base->raw($count));
     }
 
     /**
@@ -138,9 +141,10 @@ class TaxonomyResource extends Resource
 
         $group = static::plugin()->getTaxonomyNavigationGroup();
         $query = static::getEloquentQuery();
+        $model = $query->getModel();
         /** @var Taxonomy $taxonomy */
-        foreach ($query->withCount(['terms' => static::countDistinctTerms(...)])->orderBy($query->qualifyColumn('name'))
-            ->orderBy($query->qualifyColumn('id'))->get()->unique('id') as $index => $taxonomy) {
+        foreach ($query->withCount(['terms' => static::countDistinctTerms(...)])->orderBy($model->qualifyColumn('name'))
+            ->orderBy($model->qualifyColumn('id'))->get()->unique('id') as $index => $taxonomy) {
             if (! static::canView($taxonomy)) {
                 continue;
             }

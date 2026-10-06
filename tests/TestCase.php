@@ -19,6 +19,7 @@ use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\Concerns\WithWorkbench;
 use Orchestra\Testbench\TestCase as Orchestra;
 use RyanChandler\BladeCaptureDirective\BladeCaptureDirectiveServiceProvider;
+use Workbench\App\Models\User;
 use Workbench\App\Providers\Filament\AdminPanelProvider;
 
 class TestCase extends Orchestra
@@ -55,6 +56,8 @@ class TestCase extends Orchestra
     {
         $app['config']->set([
             'app.key' => 'base64:' . base64_encode(str_repeat('a', 32)),
+            // Early Testbench 9 releases neither set this nor load testbench.yaml providers in tests.
+            'auth.providers.users.model' => User::class,
             'database.default' => 'testing',
             'database.connections.testing.foreign_key_constraints' => true,
         ]);

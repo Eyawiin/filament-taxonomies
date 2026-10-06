@@ -4,6 +4,7 @@ namespace Workbench\App\Providers;
 
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\ServiceProvider;
+use Workbench\App\Models\User;
 
 class WorkbenchServiceProvider extends ServiceProvider
 {
@@ -12,13 +13,17 @@ class WorkbenchServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $config = $this->app->make(Repository::class);
+
+        // Recent Testbench releases do this themselves; early 9.x releases keep the skeleton user model,
+        // which Filament rejects outside the local environment.
+        $config->set('auth.providers.users.model', User::class);
+
         if ($this->app->runningUnitTests()) {
             return;
         }
 
         $this->app->useStoragePath(dirname(__DIR__, 2) . '/storage');
-
-        $config = $this->app->make(Repository::class);
 
         $config->set([
             'database.default' => 'sqlite',

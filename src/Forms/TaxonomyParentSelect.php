@@ -8,13 +8,14 @@ use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
 use Eyawiin\FilamentTaxonomies\Support\TaxonomyIdentity;
 use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
+use Filament\Resources\Resource as FilamentResource;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 
 class TaxonomyParentSelect
 {
     /**
-     * @param  class-string<TaxonomyResource>  $resource
+     * @param  class-string<FilamentResource>  $resource  The managing resource; usually TaxonomyResource or a subclass.
      */
     public static function make(
         Taxonomy $taxonomy,
@@ -30,6 +31,7 @@ class TaxonomyParentSelect
         if ($term !== null) {
             abort_if(TaxonomyIdentity::normalize($term->getRawOriginal($term->getKeyName())) === null, 404);
             $terms = $taxonomy->terms();
+            /** @var TaxonomyTerm $term A scalar key yields one model. */
             $term = $terms->findOrFail($term->getKey(), [$terms->getRelated()->qualifyColumn('*')]);
         }
 

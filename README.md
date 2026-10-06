@@ -115,17 +115,19 @@ example to scope `getEloquentQuery()`.
 
 ### Translations
 
-Every label and message comes from the package's language files. Publish them
-to `lang/vendor/filament-taxonomies` to change wording or add a locale:
+Every label and message comes from the package's language files, which ship in
+English and German. The panel follows your application locale, so setting
+`APP_LOCALE=de` is enough. Publish the files to `lang/vendor/filament-taxonomies`
+to change wording or add a locale:
 
 ```bash
 php artisan vendor:publish --tag="filament-taxonomies-translations"
 ```
 
 Errors from the hierarchy service, such as "The affected hierarchy contains a
-cycle.", are English sentences shown through Laravel's JSON translations.
-Translate them in your application's `lang/{locale}.json` with the English
-sentence as the key.
+cycle.", are English sentences shown through Laravel's JSON translations. The
+package's `de.json` covers them in German; for other locales, translate them in
+your application's `lang/{locale}.json` with the English sentence as the key.
 
 ### Using your own models
 

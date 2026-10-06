@@ -19,6 +19,7 @@ use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
+use Filament\Resources\Resource as FilamentResource;
 use Filament\Schemas\Schema;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Support\Htmlable;
@@ -56,6 +57,15 @@ class ManageTaxonomyTerms extends Page
             && $resource::canView($parameters['record']);
     }
 
+    /** @return class-string<FilamentResource> */
+    private function managingResource(): string
+    {
+        /** @var class-string<FilamentResource> $resource Filament declares a plain class-string. */
+        $resource = static::getResource();
+
+        return $resource;
+    }
+
     public function getRecord(): Taxonomy
     {
         abort_unless($this->record instanceof Taxonomy, 404);
@@ -88,7 +98,7 @@ class ManageTaxonomyTerms extends Page
                     fn (Schema $schema): Schema => TaxonomyTermForm::configure(
                         $schema,
                         $this->getRecord(),
-                        resource: static::getResource(),
+                        resource: $this->managingResource(),
                     ),
                 )
                 ->action(function (array $data, Schema $schema): void {
@@ -136,7 +146,7 @@ class ManageTaxonomyTerms extends Page
                     $schema,
                     $this->getRecord(),
                     $term,
-                    resource: static::getResource(),
+                    resource: $this->managingResource(),
                 );
             })
             ->action(function (array $data, array $arguments, Schema $schema): void {
@@ -197,7 +207,7 @@ class ManageTaxonomyTerms extends Page
             throw (new ModelNotFoundException)->setModel(TaxonomyModels::term());
         }
 
-        return $query->findOrFail($id, [$query->qualifyColumn('*')]);
+        return $query->findOrFail($id, [$query->getRelated()->qualifyColumn('*')]);
     }
 
     private function normalizeTermId(mixed $value): ?int

@@ -8,13 +8,14 @@ use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
 use Filament\Forms\Components\TextInput;
+use Filament\Resources\Resource as FilamentResource;
 use Filament\Schemas\Schema;
 use Illuminate\Validation\Rules\Unique;
 
 class TaxonomyTermForm
 {
     /**
-     * @param  class-string<TaxonomyResource>  $resource
+     * @param  class-string<FilamentResource>  $resource  The managing resource; usually TaxonomyResource or a subclass.
      */
     public static function configure(
         Schema $schema,

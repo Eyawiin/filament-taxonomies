@@ -128,7 +128,7 @@ class TaxonomyTreeService
             ->orderBy($query->qualifyColumn('position'))
             ->orderBy($query->qualifyColumn('name'))
             ->orderBy($query->qualifyColumn('id'))
-            ->get([$query->qualifyColumn('*')])
+            ->get([$query->getModel()->qualifyColumn('*')])
             ->filter(static fn (TaxonomyTerm $term): bool => TaxonomyIdentity::normalize($term->getRawOriginal($term->getKeyName())) !== null)
             ->unique('id');
 
@@ -362,7 +362,7 @@ class TaxonomyTreeService
                 $parentQuery = TaxonomyModels::term()::query();
                 $parent = $parentId === null ? null : $parentQuery
                     ->where($parentQuery->qualifyColumn('taxonomy_id'), $taxonomyId)
-                    ->lockForUpdate()->findOrFail($parentId, [$parentQuery->qualifyColumn('*')]);
+                    ->lockForUpdate()->findOrFail($parentId, [$parentQuery->getModel()->qualifyColumn('*')]);
                 $siblings = $this->siblingIds($terms, $parentId, (int) $source->getKey());
                 $index = array_search((int) $freshTarget->getKey(), $siblings, true);
                 if ($index === false) {
@@ -479,7 +479,7 @@ class TaxonomyTreeService
         // One attempt: replaying callbacks could replay consumer observers or external effects.
         return DB::connection()->transaction(function () use ($taxonomyId, $operation): mixed {
             $query = TaxonomyModels::taxonomy()::query();
-            $taxonomy = $query->lockForUpdate()->findOrFail($taxonomyId, [$query->qualifyColumn('*')]);
+            $taxonomy = $query->lockForUpdate()->findOrFail($taxonomyId, [$query->getModel()->qualifyColumn('*')]);
 
             return $operation($taxonomy);
         }, 1);
@@ -520,7 +520,10 @@ class TaxonomyTreeService
             $query->lockForUpdate();
         }
 
-        return $query->findOrFail($term->getKey(), [$query->qualifyColumn('*')]);
+        /** @var TaxonomyTerm $resolved A scalar key yields one model. */
+        $resolved = $query->findOrFail($term->getKey(), [$query->getModel()->qualifyColumn('*')]);
+
+        return $resolved;
     }
 
     /** @return array<int|string, TaxonomyTerm> */
@@ -678,9 +681,11 @@ class TaxonomyTreeService
     {
         // refresh() uses a snapshot read, which can be stale in an outer RR transaction.
         $query = TaxonomyModels::term()::query();
+        /** @var TaxonomyTerm $fresh A scalar key yields one model. */
+        $fresh = $query->where($query->qualifyColumn('taxonomy_id'), $term->taxonomy_id)
+            ->lockForUpdate()->findOrFail($term->getKey(), [$query->getModel()->qualifyColumn('*')]);
 
-        return $query->where($query->qualifyColumn('taxonomy_id'), $term->taxonomy_id)
-            ->lockForUpdate()->findOrFail($term->getKey(), [$query->qualifyColumn('*')]);
+        return $fresh;
     }
 
     private function synchronize(TaxonomyTerm $original, TaxonomyTerm $fresh): TaxonomyTerm
