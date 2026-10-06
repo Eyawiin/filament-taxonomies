@@ -1,5 +1,7 @@
 <?php
 
+use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
+use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Pages\ManageTaxonomyTerms;
 use Eyawiin\FilamentTaxonomies\Tests\Support\TaxonomyTreeFixture;
 use Filament\Facades\Filament;
@@ -50,4 +52,21 @@ it('keeps each rendered edit and delete button tied to its own term', function (
             expect($button->getAttribute('wire:click'))->toContain($handler);
         }
     }
+});
+
+it('escapes term names exactly once in move button labels and titles', function (): void {
+    $taxonomy = Taxonomy::create(['name' => 'Music', 'slug' => 'music']);
+    foreach (['Rock & Roll', '"><b>Injected</b>'] as $position => $name) {
+        TaxonomyTerm::create(['taxonomy_id' => $taxonomy->id, 'name' => $name, 'slug' => 'term-' . $position, 'position' => $position]);
+    }
+
+    $html = Livewire::test(ManageTaxonomyTerms::class, ['record' => $taxonomy->id])->html();
+    $document = new DOMDocument;
+    @$document->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+    $xpath = new DOMXPath($document);
+    // An enabled move button has no tooltip, so Filament also shows its label as the native title.
+    $down = $xpath->query('//button[@aria-label="Move Rock & Roll down"]')->item(0);
+
+    expect($down?->getAttribute('title'))->toBe('Move Rock & Roll down')
+        ->and($xpath->query('//b')->length)->toBe(0);
 });

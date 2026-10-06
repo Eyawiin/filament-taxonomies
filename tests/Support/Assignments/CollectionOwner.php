@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Workbench\App\Models\Deck;
 
-/** @property array|null $rows */
+/** @property array<int, array<string, mixed>>|null $rows */
 class CollectionOwner extends Model
 {
     use HasTaxonomies;

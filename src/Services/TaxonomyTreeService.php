@@ -39,13 +39,13 @@ class TaxonomyTreeService
                 ->values()
                 ->all();
 
-            if (empty($children)) {
+            if ($children === []) {
                 break;
             }
 
             $children = array_values(array_unique(array_diff($children, $visitedIds)));
 
-            if (empty($children)) {
+            if ($children === []) {
                 break;
             }
 
@@ -65,6 +65,9 @@ class TaxonomyTreeService
         return $descendantIds;
     }
 
+    /**
+     * @return list<array{term: TaxonomyTerm, children: list<mixed>}>
+     */
     public function getTree(Taxonomy $taxonomy): array
     {
         $this->assertIdentity($taxonomy);
@@ -205,7 +208,7 @@ class TaxonomyTreeService
             $this->validateParent($source, $destination, $this->structure($taxonomyId, false));
 
             return true;
-        } catch (InvalidTaxonomyParentException | ModelNotFoundException $exception) {
+        } catch (InvalidTaxonomyParentException | ModelNotFoundException) {
             return false;
         }
     }

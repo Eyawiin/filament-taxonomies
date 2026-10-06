@@ -9,7 +9,7 @@ use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 class TaxonomyTreeOptions
 {
     /**
-     * @param  array<array{term: TaxonomyTerm, children: array}>  $tree
+     * @param  list<array{term: TaxonomyTerm, children: list<mixed>}>  $tree
      * @param  Closure(TaxonomyTerm, list<int>): string  $reason
      * @param  list<int>  $ancestors
      * @return list<array{id: int, name: string, ancestors: list<int>, hasChildren: bool, disabled: bool, reason: string}>

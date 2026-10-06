@@ -19,6 +19,7 @@ class TaxonomyTreeField extends Field
 
     protected string $translationGroup = 'parent-tree';
 
+    /** @var list<ParentNode> | Closure */
     protected array | Closure $nodes = [];
 
     /** @param list<ParentNode> | Closure $nodes */

@@ -5,12 +5,12 @@
 
     @if ($tree === [])
         <p class="text-sm text-gray-600 dark:text-gray-400">
-            No terms are available in this tree.
+            {{ __('filament-taxonomies::taxonomies.manage_terms.empty') }}
         </p>
     @else
         <x-filament::section>
             <x-slot name="heading">
-                Terms
+                {{ __('filament-taxonomies::taxonomies.manage_terms.section') }}
             </x-slot>
 
             <div
@@ -22,6 +22,7 @@
                 x-data="taxonomyTreeDrag({
                     dropTerm: (termId, targetId, placement) =>
                         $wire.dropTerm(termId, targetId, placement),
+                    moveFailed: @js(__('filament-taxonomies::taxonomies.manage_terms.move_failed')),
                 })"
                 x-bind:aria-busy="saving"
                 x-on:taxonomy-tree-move-term="
@@ -32,7 +33,7 @@
                     <span
                         class="me-auto text-sm text-gray-500"
                         role="status"
-                        x-text="saving ? 'Saving move…' : ''"
+                        x-text="saving ? @js(__('filament-taxonomies::taxonomies.manage_terms.saving')) : ''"
                     ></span>
 
                     <x-filament::button
@@ -42,7 +43,7 @@
                         icon="heroicon-o-arrows-pointing-out"
                         x-on:click="$dispatch('taxonomy-tree-set-expanded', { expanded: true })"
                     >
-                        Expand All
+                        {{ __('filament-taxonomies::taxonomies.manage_terms.expand_all') }}
                     </x-filament::button>
 
                     <x-filament::button
@@ -52,7 +53,7 @@
                         icon="heroicon-o-arrows-pointing-in"
                         x-on:click="$dispatch('taxonomy-tree-set-expanded', { expanded: false })"
                     >
-                        Collapse All
+                        {{ __('filament-taxonomies::taxonomies.manage_terms.collapse_all') }}
                     </x-filament::button>
                 </div>
 

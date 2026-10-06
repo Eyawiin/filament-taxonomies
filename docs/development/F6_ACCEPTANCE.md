@@ -10,7 +10,7 @@ acceptance, and no such acceptance is claimed.
 
 Related evidence: [foundation contracts](FOUNDATION.md),
 [two review campaigns](F6_REVIEW.md), [raw performance samples and final source
-fingerprints](f6-performance.json), [measurement reproductions](../tests-performance/README.md).
+fingerprints](f6-performance.json), [measurement reproductions](../../tests-performance/README.md).
 
 ## Plan and critical review
 
@@ -212,7 +212,7 @@ The final PHP/static/style and fresh-consumer gates ran after all review fixes.
 ## Remaining acceptance gates
 
 - [ ] Actual NVDA/Firefox or VoiceOver/Safari session using the
-  [human checklist](../tests-browser/README.md), with versions/findings/fixes
+  [human checklist](../../tests-browser/README.md), with versions/findings/fixes
   recorded. Chromium, axe and AX snapshots cannot close this item.
 - [ ] After publication is authorized, inspect the new GitHub matrix on the accepted
   commit: lowest/stable dependencies, PHP 8.2 and native Windows included.

@@ -59,12 +59,10 @@ class TaxonomyParentSelect
             ->exists(
                 table: TaxonomyTerm::class,
                 column: 'id',
-                modifyRuleUsing: static function (Exists $rule) use ($taxonomy): Exists {
-                    return $rule->where(
-                        'taxonomy_id',
-                        $taxonomy->getKey(),
-                    );
-                },
+                modifyRuleUsing: static fn (Exists $rule): Exists => $rule->where(
+                    'taxonomy_id',
+                    $taxonomy->getKey(),
+                ),
             );
     }
 }

@@ -3,7 +3,6 @@
 namespace Workbench\App\Providers\Filament;
 
 use Eyawiin\FilamentTaxonomies\FilamentTaxonomiesPlugin;
-use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -18,6 +17,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Workbench\App\Filament\Resources\Decks\DeckResource;
+use Workbench\App\Http\Middleware\AuthenticateWorkbenchUser;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -38,7 +38,7 @@ class AdminPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->authMiddleware([
-                Authenticate::class,
+                AuthenticateWorkbenchUser::class,
             ]);
     }
 

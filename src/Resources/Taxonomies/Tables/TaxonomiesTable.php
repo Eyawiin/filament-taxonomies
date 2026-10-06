@@ -25,20 +25,22 @@ class TaxonomiesTable
         return $table
             ->columns([
                 TextColumn::make('name')
+                    ->label(__('filament-taxonomies::taxonomies.fields.name'))
                     ->searchable([$model->qualifyColumn('name')])
                     ->sortable([$model->qualifyColumn('name')]),
 
                 TextColumn::make('slug')
+                    ->label(__('filament-taxonomies::taxonomies.fields.slug'))
                     ->searchable([$model->qualifyColumn('slug')])
                     ->sortable([$model->qualifyColumn('slug')]),
 
                 TextColumn::make('terms_count')
                     ->counts(['terms' => $resource::countDistinctTerms(...)])
-                    ->label('Terms'),
+                    ->label(__('filament-taxonomies::taxonomies.fields.terms_count')),
             ])
             ->recordActions([
                 Action::make('manageTerms')
-                    ->label('Manage Terms')
+                    ->label(__('filament-taxonomies::taxonomies.actions.manage_terms'))
                     ->icon('heroicon-o-list-bullet')
                     ->authorize(fn (Taxonomy $record): bool => $resource::canAccess()
                         && $resource::canView($record))
@@ -50,19 +52,21 @@ class TaxonomiesTable
                     ),
                 EditAction::make(),
                 DeleteAction::make()
-                    ->failureNotificationTitle('The taxonomy could not be deleted')
+                    ->failureNotificationTitle(__('filament-taxonomies::taxonomies.actions.delete_taxonomy_failed'))
                     ->using(function (Taxonomy $record, DeleteAction $action) use ($resource): bool {
                         $service = app(TaxonomyTreeService::class);
 
                         try {
                             $deleted = $service->withTaxonomyLock($record, function (Taxonomy $taxonomy) use ($service, $resource): bool {
+                                /** @var Taxonomy $fresh */
                                 $fresh = $resource::getEloquentQuery()->lockForUpdate()->findOrFail($taxonomy->getKey());
                                 $resource::getDeleteAuthorizationResponse($fresh)->authorize();
 
                                 return $service->deleteTaxonomy($fresh);
                             });
                         } catch (InvalidTaxonomyParentException $exception) {
-                            $action->failureNotificationBody($exception->getMessage());
+                            // Domain messages are English sentences; JSON translations can localize them.
+                            $action->failureNotificationBody(__($exception->getMessage()));
 
                             return false;
                         }

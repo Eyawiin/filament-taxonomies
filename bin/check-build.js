@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 
 const files = [
-    'resources/dist/filament-taxonomies.js',
     'resources/dist/components/taxonomy-tree.js',
     'resources/dist/components/taxonomy-parent-tree.js',
     'resources/dist/components/taxonomy-assignment-picker.js',

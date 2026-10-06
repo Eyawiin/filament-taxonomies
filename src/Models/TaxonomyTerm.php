@@ -24,16 +24,25 @@ class TaxonomyTerm extends Model
         'position',
     ];
 
+    /**
+     * @return BelongsTo<Taxonomy, $this>
+     */
     public function taxonomy(): BelongsTo
     {
         return $this->belongsTo(Taxonomy::class);
     }
 
+    /**
+     * @return BelongsTo<TaxonomyTerm, $this>
+     */
     public function parent(): BelongsTo
     {
         return $this->belongsTo(self::class, 'parent_id');
     }
 
+    /**
+     * @return HasMany<TaxonomyTerm, $this>
+     */
     public function children(): HasMany
     {
         return $this->hasMany(self::class, 'parent_id');

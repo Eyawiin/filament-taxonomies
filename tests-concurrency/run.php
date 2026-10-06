@@ -201,6 +201,7 @@ try {
     // to prove the diagnostic matcher recognizes the actual package constraints.
     $translator = new Translator(new ArrayLoader, 'en');
     $translator->addLines(['validation.unique' => 'The :attribute has already been taken.'], 'en');
+    $translator->addLines(['taxonomies.fields.slug' => 'Slug'], 'en', 'filament-taxonomies');
     $capsule->getContainer()->instance('translator', $translator);
     $capsule->getContainer()->instance('validator', new Factory($translator, $capsule->getContainer()));
     $tax = Taxonomy::create(['name' => 'Validation', 'slug' => 'mysql-validation']);

@@ -59,7 +59,7 @@
                 <div
                     @if ($canMove) data-taxonomy-drag-handle @endif
                     class="flex h-8 w-8 shrink-0 touch-none select-none items-center justify-center text-gray-400 dark:text-gray-500 {{ $canMove ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed opacity-40' }}"
-                    title="{{ $canMove ? 'Drag to reorder' : 'You do not have permission to move this term' }}"
+                    title="{{ $canMove ? __('filament-taxonomies::taxonomies.manage_terms.drag') : __('filament-taxonomies::taxonomies.manage_terms.move_denied') }}"
                 >
                     <x-filament::icon
                         icon="heroicon-o-bars-3"
@@ -77,7 +77,7 @@
                       >
                           <x-filament::icon-button
                               icon="heroicon-o-chevron-right"
-                              label="Toggle children"
+                              :label="__('filament-taxonomies::taxonomies.manage_terms.toggle_children')"
                               size="sm"
                               color="gray"
                               x-on:click="expanded = ! expanded"
@@ -92,7 +92,7 @@
                     >
                         <x-filament::icon-button
                             icon="heroicon-o-chevron-right"
-                            label="Toggle children"
+                            :label="__('filament-taxonomies::taxonomies.manage_terms.toggle_children')"
                             size="sm"
                             color="gray"
                             tabindex="-1"
@@ -121,9 +121,9 @@
                 <div class="taxonomy-row-actions flex shrink-0 items-center">
                     <x-filament::icon-button
                         icon="heroicon-o-arrow-up"
-                        label="Move {{ $node['term']->name }} up"
+                        :label="__('filament-taxonomies::taxonomies.manage_terms.move_up', ['name' => $node['term']->name])"
                         :disabled="! $canMove || $previousNode === null"
-                        :tooltip="! $canMove ? 'You do not have permission to move this term' : ($previousNode === null ? 'Already the first term at this level' : null)"
+                        :tooltip="! $canMove ? __('filament-taxonomies::taxonomies.manage_terms.move_denied') : ($previousNode === null ? __('filament-taxonomies::taxonomies.manage_terms.first_term') : null)"
                         size="sm"
                         :color="! $canMove || $previousNode === null ? 'gray' : 'primary'"
                         class="taxonomy-move-button"
@@ -136,9 +136,9 @@
 
                     <x-filament::icon-button
                         icon="heroicon-o-arrow-down"
-                        label="Move {{ $node['term']->name }} down"
+                        :label="__('filament-taxonomies::taxonomies.manage_terms.move_down', ['name' => $node['term']->name])"
                         :disabled="! $canMove || $nextNode === null"
-                        :tooltip="! $canMove ? 'You do not have permission to move this term' : ($nextNode === null ? 'Already the last term at this level' : null)"
+                        :tooltip="! $canMove ? __('filament-taxonomies::taxonomies.manage_terms.move_denied') : ($nextNode === null ? __('filament-taxonomies::taxonomies.manage_terms.last_term') : null)"
                         size="sm"
                         :color="! $canMove || $nextNode === null ? 'gray' : 'primary'"
                         class="taxonomy-move-button"

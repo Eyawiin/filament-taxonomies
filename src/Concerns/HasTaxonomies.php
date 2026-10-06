@@ -37,8 +37,9 @@ trait HasTaxonomies
     public function termsForTaxonomy(mixed $taxonomy): MorphToMany
     {
         $resolved = app(TaxonomyAssignmentService::class)->resolveTaxonomy($taxonomy);
+        $relation = $this->taxonomyTerms();
 
-        return $this->taxonomyTerms()->where('taxonomy_terms.taxonomy_id', $resolved->getKey());
+        return $relation->where($relation->getRelated()->qualifyColumn('taxonomy_id'), $resolved->getKey());
     }
 
     /**

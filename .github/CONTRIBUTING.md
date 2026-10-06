@@ -38,7 +38,7 @@ Before submitting a pull request:
 
 ## Foundation work
 
-Read [the foundation contracts](FOUNDATION.md) before changing hierarchy behavior,
+Read [the foundation contracts](../docs/development/FOUNDATION.md) before changing hierarchy behavior,
 authorization, or installation. The guide explains current guarantees, pending
 regression commands, and how to promote a fixed specification into required CI.
 

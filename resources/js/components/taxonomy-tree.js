@@ -1,6 +1,6 @@
 import { createTreeDrag } from '../drag/pragmatic-tree.js'
 
-export default function taxonomyTreeDrag({ dropTerm }) {
+export default function taxonomyTreeDrag({ dropTerm, moveFailed }) {
     let adapter
     let observer
     let destroyed = false
@@ -34,8 +34,7 @@ export default function taxonomyTreeDrag({ dropTerm }) {
             try {
                 await dropTerm(termId, targetId, placement)
             } catch {
-                this.error =
-                    'The move could not be saved. Refresh the tree and try again.'
+                this.error = moveFailed
             } finally {
                 this.saving = false
                 this.$nextTick(() => {

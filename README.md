@@ -83,6 +83,46 @@ public function panel(Panel $panel): Panel
 
 Open **Taxonomies** in the panel navigation to create a taxonomy, then choose **Manage Terms** to organize its terms in a tree. Drag a term by its handle and drop it near the top of another row to place it before, in the middle to make it a child, or near the bottom to place it after. You can also use the row's **Move up** and **Move down** buttons to reorder siblings without dragging. Use **Edit** to change a term's parent.
 
+### Configuring the plugin
+
+All options are optional and apply to the panel you register the plugin on.
+Each accepts a closure, which is evaluated per request; use one for
+translated labels:
+
+```php
+use App\Filament\Resources\TaxonomyResource;
+use Eyawiin\FilamentTaxonomies\FilamentTaxonomiesPlugin;
+
+FilamentTaxonomiesPlugin::make()
+    ->navigationLabel(fn (): string => __('Vocabularies'))
+    ->navigationIcon('heroicon-o-book-open')
+    ->navigationGroup('Content')              // Group of the list entry; default: none.
+    ->navigationSort(3)
+    ->taxonomyNavigationGroup('Vocabularies') // Group of the per-taxonomy entries.
+    ->resource(TaxonomyResource::class);      // A subclass of the package resource.
+```
+
+By default the navigation shows the taxonomy list as its own entry and every
+visible taxonomy, with its term count, in a **Taxonomies** group. Listing the
+taxonomies costs one query per page load; call `->taxonomyNavigation(false)` to
+show a single standard resource entry instead. A custom resource class must
+extend `Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource`, for
+example to scope `getEloquentQuery()`.
+
+### Translations
+
+Every label and message comes from the package's language files. Publish them
+to `lang/vendor/filament-taxonomies` to change wording or add a locale:
+
+```bash
+php artisan vendor:publish --tag="filament-taxonomies-translations"
+```
+
+Errors from the hierarchy service, such as "The affected hierarchy contains a
+cycle.", are English sentences shown through Laravel's JSON translations.
+Translate them in your application's `lang/{locale}.json` with the English
+sentence as the key.
+
 ## Assigning terms to Eloquent models
 
 Publish migrations again and run `php artisan migrate` after updating to this
@@ -192,8 +232,8 @@ use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
 use Workbench\Database\Factories\UserFactory;
 
-$user = UserFactory::new()->create(['name' => 'P1 demo']);
-$taxonomy = Taxonomy::create(['name' => 'P1 demo', 'slug' => 'p1-demo-' . uniqid()]);
+$user = UserFactory::new()->create(['name' => 'Assignment demo']);
+$taxonomy = Taxonomy::create(['name' => 'Assignment demo', 'slug' => 'assignment-demo-' . uniqid()]);
 $term = app(TaxonomyTreeService::class)->createTerm($taxonomy, 'Demo term', 'demo');
 
 $user->attachTaxonomyTerms($taxonomy, [$term->id]);
@@ -235,7 +275,7 @@ TaxonomySelect::make('level_id')
 ```
 
 These are relationship fields: their names are form state paths, not columns on
-the owner. They hydrate assigned IDs and save through the scoped P1 assignment
+the owner. They hydrate assigned IDs and save through the scoped assignment
 service after a new owner has been created. Single state is an ID or `null`;
 multiple state is a list of IDs, with `[]` clearing that taxonomy. Neither field
 changes assignments in other taxonomies. By default selecting a branch assigns
@@ -457,7 +497,7 @@ future conversion to lossless string IDs throughout state, events and actions.
 
 Filament 5 requires PHP 8.2+, Laravel 11.28+ and Tailwind CSS 4.1+.
 This branch retains Laravel 11 as legacy compatibility. Its tested dependency
-set reported upstream security advisories in the [2026-10-02 foundation review](.github/F6_REVIEW.md).
+set reported upstream security advisories in the [2026-10-02 review](docs/development/F6_REVIEW.md).
 Use Laravel 12/13 for new projects. [Filament installation requirements](https://filamentphp.com/docs/5.x/introduction/installation)
 
 | Laravel | PHP test lanes | Testbench |
@@ -528,11 +568,10 @@ such as Laravel Herd's, can run it as an informational check with
 
 Optional isolated scale measurements are documented in
 [the performance harness](tests-performance/README.md); run them with
-`npm run test:performance`. The recorded acceptance evidence and remaining checks
-are in [F6 acceptance](.github/F6_ACCEPTANCE.md).
+`npm run test:performance`. Design decisions, recorded measurements and open
+acceptance checks are in [docs/development](docs/development/README.md).
 
 Formatting CI runs `pint --test` without committing or pushing changes.
-All F0 pending specifications have been promoted into required suites.
 
 ## Local backend playground
 
@@ -546,10 +585,12 @@ composer demo
 composer serve
 ```
 
-Open <http://127.0.0.1:8000>: the start page signs you in and opens the panel.
-`/_workbench` does the same at any time; log out to try the regular
-`/admin/login` form. Run `npm run build:theme` again after changing Blade views
-or theme CSS, and `composer build` after updating Composer dependencies.
+Open <http://127.0.0.1:8000>. Every panel page signs you in as the workbench
+user when nobody is signed in, so bookmarks and deep links work too. After
+logging out, the regular `/admin/login` form stays available;
+`/_workbench/login/{id}` switches to another user. Run `npm run build:theme`
+again after changing Blade views or theme CSS, and `composer build` after
+updating Composer dependencies.
 
 `composer demo` prepares persistent workbench storage, builds/migrates the
 workbench and seeds **Demo Topics** and **Demo Levels**, each with 12 terms across
@@ -618,7 +659,7 @@ Use the empty Deck to build a new selection. These fixtures belong to the
 workbench and are excluded from package archives.
 
 
-## Upgrade notes for the foundation cleanup
+## Upgrading from earlier 5.x development versions
 
 The unused `filament-taxonomies` scaffold command, empty `FilamentTaxonomies`
 facade/alias and empty testing mixin have been removed. They implemented no
@@ -627,6 +668,16 @@ operations. Use `filament-taxonomies:install` for publishing and
 The internal parent factory now returns a dedicated Field, so undocumented
 Select-specific chaining is not supported. Published parent views must be
 updated for the nested field template and the new `parent-tree-branch` partial.
+
+The plugin no longer adds a collapsible **Taxonomies** navigation group to your
+panel; navigation groups follow the panel's own settings. Configure the
+navigation with the [plugin options](#configuring-the-plugin) instead.
+`TaxonomyResource::getNavigationGroup()` now returns the group of the list entry
+(none by default); the per-taxonomy entries use the plugin's
+`taxonomyNavigationGroup()`. All interface text now comes from translation
+files, so republish customized views: the management page passes a translated
+error message to its tree script. The unused, empty
+`resources/dist/filament-taxonomies.js` bundle has been removed.
 
 ## Changelog
 

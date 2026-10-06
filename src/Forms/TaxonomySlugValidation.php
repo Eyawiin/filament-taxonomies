@@ -3,6 +3,7 @@
 namespace Eyawiin\FilamentTaxonomies\Forms;
 
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class TaxonomySlugValidation
@@ -35,8 +36,9 @@ class TaxonomySlugValidation
             throw $exception;
         }
 
+        // Matches the wording of the slug field's own unique rule, which uses its lowercased label.
         throw ValidationException::withMessages([
-            $statePath => __('validation.unique', ['attribute' => 'slug']),
+            $statePath => __('validation.unique', ['attribute' => Str::lcfirst(__('filament-taxonomies::taxonomies.fields.slug'))]),
         ]);
     }
 }

@@ -14,6 +14,7 @@ class RepeaterPage extends Page
 {
     protected string $view = 'assignment-test::form';
 
+    /** @var array<string, mixed>|null */
     public ?array $data = [];
 
     public CollectionOwner $owner;

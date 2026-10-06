@@ -42,5 +42,5 @@ database latency, custom policies/scopes, labels and theme affect results. CI
 enforces deterministic query/visibility regressions in the normal PHP/Node suites;
 wall-clock thresholds are deliberately not added to shared-runner CI.
 
-See `.github/F6_ACCEPTANCE.md` for the recorded environment, comparison, operating
+See `docs/development/F6_ACCEPTANCE.md` for the recorded environment, comparison, operating
 guidance and acceptance gaps.

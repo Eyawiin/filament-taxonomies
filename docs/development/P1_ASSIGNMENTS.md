@@ -1,7 +1,7 @@
 # P1 explicit assignment contract
 
 Implemented and reviewed on 2026-10-04, based on the foundation through `85088b4`.
-See [usage and upgrade instructions](../README.md#assigning-terms-to-eloquent-models).
+See [usage and upgrade instructions](../../README.md#assigning-terms-to-eloquent-models).
 
 ## Design and reused boundaries
 

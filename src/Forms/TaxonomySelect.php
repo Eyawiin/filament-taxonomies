@@ -16,7 +16,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use LogicException;
 
-/** A taxonomy-scoped relationship field. The owner must use HasTaxonomies. */
+/**
+ * A taxonomy-scoped relationship field. The owner must use HasTaxonomies.
+ *
+ * @phpstan-import-type ParentNode from TaxonomyTreeField
+ */
 class TaxonomySelect extends TaxonomyTreeField
 {
     protected string $translationGroup = 'assignment-tree';
@@ -74,7 +78,7 @@ class TaxonomySelect extends TaxonomyTreeField
                         }
                         app(TaxonomyAssignmentService::class)->sync($record, $fresh, $component->selectionIds($component->getState()) ?? []);
                     });
-                } catch (InvalidTaxonomyAssignmentException | ModelNotFoundException $exception) {
+                } catch (InvalidTaxonomyAssignmentException | ModelNotFoundException) {
                     $component->failSelection();
                 }
             });
@@ -141,6 +145,7 @@ class TaxonomySelect extends TaxonomyTreeField
         return $this->nodesForTaxonomy($this->getTaxonomy());
     }
 
+    /** @return list<ParentNode> */
     protected function nodesForTaxonomy(Taxonomy $taxonomy): array
     {
         $allowed = $this->canAssign($taxonomy);
@@ -190,7 +195,7 @@ class TaxonomySelect extends TaxonomyTreeField
                 }
                 $owners[$scope] = $component->getStatePath();
                 $taxonomies[$taxonomy->getKey()] = $taxonomy;
-            } catch (InvalidTaxonomyAssignmentException | ModelNotFoundException $exception) {
+            } catch (InvalidTaxonomyAssignmentException | ModelNotFoundException) {
                 // Its own rule reports a field error; never skip that validation.
             }
         }
@@ -208,7 +213,7 @@ class TaxonomySelect extends TaxonomyTreeField
     {
         try {
             return $this->acceptsSelectionForTaxonomy($state, $this->getTaxonomy());
-        } catch (InvalidTaxonomyAssignmentException | ModelNotFoundException $exception) {
+        } catch (InvalidTaxonomyAssignmentException | ModelNotFoundException) {
             return false;
         }
     }

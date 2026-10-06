@@ -13,11 +13,13 @@ class TaxonomyForm
         return $schema
             ->components([
                 TextInput::make('name')
+                    ->label(__('filament-taxonomies::taxonomies.fields.name'))
                     ->required()
                     ->maxLength(255)
-                    ->helperText('A readable name, such as Topics or Difficulty'),
+                    ->helperText(__('filament-taxonomies::taxonomies.fields.name_helper')),
 
                 TextInput::make('slug')
+                    ->label(__('filament-taxonomies::taxonomies.fields.slug'))
                     ->unique(table: Taxonomy::class, ignoreRecord: true)
                     ->required()
                     ->maxLength(255),

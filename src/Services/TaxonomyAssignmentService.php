@@ -95,19 +95,20 @@ class TaxonomyAssignmentService
                 throw new InvalidTaxonomyAssignmentException('A taxonomy must have an unchanged persisted identity.');
             }
 
-            return Taxonomy::query()->whereKey($id)->firstOrFail(['taxonomies.*']);
+            return Taxonomy::query()->whereKey($id)->firstOrFail([(new Taxonomy)->qualifyColumn('*')]);
         }
         if (is_int($taxonomy)) {
             if (TaxonomyIdentity::normalize($taxonomy) === null) {
                 throw new InvalidTaxonomyAssignmentException('A taxonomy ID must be a positive native integer.');
             }
 
-            return Taxonomy::query()->whereKey($taxonomy)->firstOrFail(['taxonomies.*']);
+            return Taxonomy::query()->whereKey($taxonomy)->firstOrFail([(new Taxonomy)->qualifyColumn('*')]);
         }
         if (! is_string($taxonomy) || $taxonomy === '' || mb_strlen($taxonomy) > 255) {
             throw new InvalidTaxonomyAssignmentException('A taxonomy slug must be nonempty and at most 255 characters.');
         }
-        $resolved = Taxonomy::query()->where('taxonomies.slug', $taxonomy)->firstOrFail(['taxonomies.*']);
+        $query = Taxonomy::query();
+        $resolved = $query->where($query->qualifyColumn('slug'), $taxonomy)->firstOrFail([$query->qualifyColumn('*')]);
         if ($resolved->slug !== $taxonomy) {
             throw new InvalidTaxonomyAssignmentException('A taxonomy slug must match exactly.');
         }
@@ -169,7 +170,10 @@ class TaxonomyAssignmentService
         return [$type, (string) $raw];
     }
 
-    /** @param iterable<int|string> $values @return list<int> */
+    /**
+     * @param  iterable<int|string>  $values
+     * @return list<int>
+     */
     private function normalizeTerms(iterable $values): array
     {
         $ids = [];
@@ -187,8 +191,9 @@ class TaxonomyAssignmentService
     /** @param array<int, int|string> $ids */
     private function validateTerms(Taxonomy $taxonomy, array $ids): void
     {
-        $visible = TaxonomyTerm::query()->where('taxonomy_terms.taxonomy_id', $taxonomy->getKey())
-            ->whereIn('taxonomy_terms.id', $ids)->lockForUpdate()->get(['taxonomy_terms.id'])
+        $query = TaxonomyTerm::query();
+        $visible = $query->where($query->qualifyColumn('taxonomy_id'), $taxonomy->getKey())
+            ->whereIn($query->qualifyColumn('id'), $ids)->lockForUpdate()->get([$query->qualifyColumn('id')])
             ->pluck('id')->unique()->all();
         if (count($visible) !== count($ids)) {
             throw new InvalidTaxonomyAssignmentException('Every term must still be visible and belong to the selected taxonomy.');
@@ -200,7 +205,10 @@ class TaxonomyAssignmentService
         return DB::table('taxonomy_term_assignments')->where('assignable_type', $type)->where('assignable_id', $key);
     }
 
-    /** @param list<int> $selected @param array<int, int|string> $current */
+    /**
+     * @param  list<int>  $selected
+     * @param  array<int, int|string>  $current
+     */
     private function insert(array $selected, array $current, string $type, string $key): void
     {
         $rows = array_map(fn (int $id): array => ['taxonomy_term_id' => $id, 'assignable_type' => $type, 'assignable_id' => $key], array_values(array_diff($selected, $current)));

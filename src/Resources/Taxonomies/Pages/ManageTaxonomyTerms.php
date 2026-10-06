@@ -20,6 +20,7 @@ use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Filament\Schemas\Schema;
 use Illuminate\Auth\Access\Response;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Validation\ValidationException;
@@ -65,16 +66,21 @@ class ManageTaxonomyTerms extends Page
         return $record;
     }
 
+    public function getTitle(): string | Htmlable
+    {
+        return __('filament-taxonomies::taxonomies.manage_terms.title');
+    }
+
     public function getHeading(): string
     {
-        return "Manage Terms: {$this->getRecord()->name}";
+        return __('filament-taxonomies::taxonomies.manage_terms.heading', ['name' => $this->getRecord()->name]);
     }
 
     protected function getHeaderActions(): array
     {
         return [
             Action::make('createTerm')
-                ->label('Create Term')
+                ->label(__('filament-taxonomies::taxonomies.actions.create_term'))
                 ->icon('heroicon-o-plus')
                 ->authorize(fn (): Response => TaxonomyTermAuthorization::create($this->getRecord()))
                 ->schema(
@@ -97,6 +103,9 @@ class ManageTaxonomyTerms extends Page
         ];
     }
 
+    /**
+     * @return list<array{term: TaxonomyTerm, children: list<mixed>}>
+     */
     public function getTermTree(): array
     {
         return TaxonomyIdentity::browserTree(app(TaxonomyTreeService::class)->getTree($this->getRecord()));
@@ -105,10 +114,10 @@ class ManageTaxonomyTerms extends Page
     public function editTermAction(): Action
     {
         return Action::make('editTerm')
-            ->label('Edit Term')
+            ->label(__('filament-taxonomies::taxonomies.actions.edit_term'))
             ->icon('heroicon-o-pencil-square')
             ->iconButton()
-            ->tooltip('Edit term')
+            ->tooltip(__('filament-taxonomies::taxonomies.actions.edit_term_tooltip'))
             ->authorize(fn (array $arguments): Response => TaxonomyTermAuthorization::update($this->resolveTerm($arguments)))
             ->fillForm(function (array $arguments): array {
                 $term = $this->resolveTerm($arguments);
@@ -146,8 +155,9 @@ class ManageTaxonomyTerms extends Page
         try {
             return $this->mutateTerms($operation);
         } catch (InvalidTaxonomyParentException $exception) {
+            // Domain messages are English sentences; JSON translations can localize them.
             throw ValidationException::withMessages([
-                $schema->getStatePath() . '.parent_id' => $exception->getMessage(),
+                $schema->getStatePath() . '.parent_id' => __($exception->getMessage()),
             ]);
         } catch (UniqueConstraintViolationException $exception) {
             TaxonomySlugValidation::report($exception, 'taxonomy_terms', $schema->getStatePath() . '.slug');
@@ -165,13 +175,14 @@ class ManageTaxonomyTerms extends Page
 
         if ($parent === null) {
             throw ValidationException::withMessages([
-                $schema->getStatePath() . '.parent_id' => 'The selected parent is no longer available.',
+                $schema->getStatePath() . '.parent_id' => __('filament-taxonomies::taxonomies.validation.parent_unavailable'),
             ]);
         }
 
         return $parent;
     }
 
+    /** @param array<string, mixed> $arguments */
     private function resolveTerm(array $arguments): TaxonomyTerm
     {
         $query = $this->getRecord()->terms();
@@ -195,17 +206,17 @@ class ManageTaxonomyTerms extends Page
     public function deleteTermAction(): Action
     {
         return Action::make('deleteTerm')
-            ->label('Delete Term')
+            ->label(__('filament-taxonomies::taxonomies.actions.delete_term'))
             ->icon('heroicon-o-trash')
             ->iconButton()
             ->color('danger')
-            ->tooltip('Delete term')
+            ->tooltip(__('filament-taxonomies::taxonomies.actions.delete_term_tooltip'))
             ->authorize(fn (array $arguments): Response => TaxonomyTermAuthorization::delete($this->resolveTerm($arguments)))
             ->requiresConfirmation()
-            ->modalHeading('Delete term')
-            ->modalDescription('Are you sure you want to delete this term? Its direct children will become root terms.')
-            ->modalSubmitActionLabel('Delete')
-            ->failureNotificationTitle('The term could not be deleted')
+            ->modalHeading(__('filament-taxonomies::taxonomies.actions.delete_term_heading'))
+            ->modalDescription(__('filament-taxonomies::taxonomies.actions.delete_term_description'))
+            ->modalSubmitActionLabel(__('filament-taxonomies::taxonomies.actions.delete_term_submit'))
+            ->failureNotificationTitle(__('filament-taxonomies::taxonomies.actions.delete_term_failed'))
             ->action(function (array $arguments, Action $action): void {
                 try {
                     $deleted = $this->mutateTerms(function (TaxonomyTreeService $service) use ($arguments): bool {
@@ -215,8 +226,8 @@ class ManageTaxonomyTerms extends Page
                         return $service->deleteTerm($term);
                     });
                 } catch (InvalidTaxonomyParentException $exception) {
-                    $action->failureNotificationTitle('Unable to delete term')
-                        ->failureNotificationBody($exception->getMessage());
+                    $action->failureNotificationTitle(__('filament-taxonomies::taxonomies.actions.delete_term_rejected'))
+                        ->failureNotificationBody(__($exception->getMessage()));
                     $deleted = false;
                 }
                 if (! $deleted) {
@@ -236,7 +247,7 @@ class ManageTaxonomyTerms extends Page
 
         if ($position === null) {
             throw ValidationException::withMessages([
-                'placement' => 'The drop placement must be before, inside, or after.',
+                'placement' => __('filament-taxonomies::taxonomies.validation.placement'),
             ]);
         }
 
@@ -248,7 +259,7 @@ class ManageTaxonomyTerms extends Page
             try {
                 $service->moveRelativeTo($term, $target, $position);
             } catch (InvalidTaxonomyDropException | InvalidTaxonomyParentException | InvalidTaxonomyOrderException $exception) {
-                throw ValidationException::withMessages(['drop' => $exception->getMessage()]);
+                throw ValidationException::withMessages(['drop' => __($exception->getMessage())]);
             }
 
             if ($position === TaxonomyTermDropPosition::Inside) {
@@ -267,7 +278,7 @@ class ManageTaxonomyTerms extends Page
             ? filter_var($position, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]])
             : false;
         if ($position === false) {
-            throw ValidationException::withMessages(['move' => 'The term position must be a non-negative integer.']);
+            throw ValidationException::withMessages(['move' => __('filament-taxonomies::taxonomies.validation.position')]);
         }
 
         $this->mutateTerms(function (TaxonomyTreeService $service) use ($termId, $position, $parentId): void {
@@ -279,7 +290,7 @@ class ManageTaxonomyTerms extends Page
             try {
                 $service->moveTerm($term, $parent, $position);
             } catch (InvalidTaxonomyParentException | InvalidTaxonomyOrderException $exception) {
-                throw ValidationException::withMessages(['move' => $exception->getMessage()]);
+                throw ValidationException::withMessages(['move' => __($exception->getMessage())]);
             }
             if ($parent !== null && $oldParentId !== (int) $parent->getKey()) {
                 $this->expandAfterCommit((int) $parent->getKey());

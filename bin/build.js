@@ -54,14 +54,6 @@ const defaultOptions = {
 
 compile({
     ...defaultOptions,
-    entryPoints: ['./resources/js/index.js'],
-    outfile: './resources/dist/filament-taxonomies.js',
-}).then(() => {
-    console.log(`Build completed for filament-taxonomies.js`)
-})
-
-compile({
-    ...defaultOptions,
     entryPoints: ['./resources/js/components/taxonomy-tree.js'],
     outfile: './resources/dist/components/taxonomy-tree.js',
 }).then(() => {

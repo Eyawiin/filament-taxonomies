@@ -23,10 +23,12 @@ class TaxonomyTermForm
     ): Schema {
         return $schema->components([
             TextInput::make('name')
+                ->label(__('filament-taxonomies::taxonomies.fields.name'))
                 ->required()
                 ->maxLength(255),
 
             TextInput::make('slug')
+                ->label(__('filament-taxonomies::taxonomies.fields.slug'))
                 ->unique(
                     table: TaxonomyTerm::class,
                     ignorable: $term,

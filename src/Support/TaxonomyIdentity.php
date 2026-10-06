@@ -19,7 +19,10 @@ final class TaxonomyIdentity
         return $id === false ? null : $id;
     }
 
-    /** @param array<array{term: TaxonomyTerm, children: array}> $tree */
+    /**
+     * @param  list<array{term: TaxonomyTerm, children: list<mixed>}>  $tree
+     * @return list<array{term: TaxonomyTerm, children: list<mixed>}>
+     */
     public static function browserTree(array $tree): array
     {
         $result = [];

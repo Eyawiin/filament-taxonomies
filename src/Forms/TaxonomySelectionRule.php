@@ -10,7 +10,7 @@ class TaxonomySelectionRule implements ValidationRule
 {
     public bool $implicit = true;
 
-    public function __construct(private TaxonomySelect $field) {}
+    public function __construct(private readonly TaxonomySelect $field) {}
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
