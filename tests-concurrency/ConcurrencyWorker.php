@@ -18,7 +18,7 @@ final class ConcurrencyWorker
     {
         $this->input = new InputStream;
         $this->process = new Process([
-            PHP_BINARY, __DIR__ . '/worker.php', $database, $operation,
+            PHP_BINARY, __DIR__ . '/worker-process.php', $database, $operation,
             json_encode($arguments, JSON_THROW_ON_ERROR), $pause ? '1' : '0', $snapshot ? '1' : '0',
         ], timeout: 25);
         $this->process->setInput($this->input);

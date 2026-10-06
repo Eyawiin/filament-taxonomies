@@ -14,7 +14,7 @@ use Illuminate\Validation\Factory;
 use Illuminate\Validation\ValidationException;
 
 require __DIR__ . '/bootstrap.php';
-require __DIR__ . '/Worker.php';
+require __DIR__ . '/ConcurrencyWorker.php';
 
 function checkConcurrency(bool $condition, string $message): void
 {
@@ -81,7 +81,16 @@ try {
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 10],
     );
     $version = (string) $admin->query('SELECT VERSION()')->fetchColumn();
-    checkConcurrency(str_starts_with($version, '8.4.'), 'This gate requires MySQL 8.4; received ' . $version);
+    $verifiedVersion = str_starts_with($version, '8.4.');
+    // Local servers such as Laravel Herd often run another MySQL 8 release; CI keeps the verified 8.4 target.
+    $unverifiedAllowed = filter_var(getenv('TAXONOMY_MYSQL_ALLOW_UNVERIFIED_VERSION'), FILTER_VALIDATE_BOOL);
+    checkConcurrency(
+        $verifiedVersion || ($unverifiedAllowed && preg_match('/^8\.\d+\.\d+/', $version) === 1),
+        'This gate requires MySQL 8.4; received ' . $version . '. Set TAXONOMY_MYSQL_ALLOW_UNVERIFIED_VERSION=1 to run it against another MySQL 8 server.',
+    );
+    if (! $verifiedVersion) {
+        echo 'Warning: MySQL ' . $version . ' is not the verified 8.4 target; treat this run as informational.' . "\n";
+    }
     $database = 'filament_taxonomies_f2_' . bin2hex(random_bytes(6));
     // Never select, migrate, or drop a consumer's database.
     $admin->exec('CREATE DATABASE ' . $database . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');

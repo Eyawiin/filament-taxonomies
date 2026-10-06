@@ -11,7 +11,8 @@ seeders:
   - Workbench\Database\Seeders\DatabaseSeeder
 
 workbench:
-  start: '/'
+  start: '/admin'
+  user: test@example.com
   install: true
   health: false
   discovers:
@@ -23,6 +24,9 @@ workbench:
     views: false
   build:
     - asset-publish
+    - filament:assets
     - migrate
+    - db:seed:
+        --class: Workbench\Database\Seeders\DatabaseSeeder
   assets:
     - laravel-assets

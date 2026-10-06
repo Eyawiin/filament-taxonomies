@@ -8,7 +8,17 @@ Run from the repository root after Composer dependencies are installed:
     TAXONOMY_MYSQL_PASSWORD=your_test_password \
     composer test:concurrency
 
+In PowerShell, set the variables first:
+
+    $env:TAXONOMY_MYSQL_HOST = '127.0.0.1'
+    $env:TAXONOMY_MYSQL_USER = 'your_test_user'
+    $env:TAXONOMY_MYSQL_PASSWORD = 'your_test_password'
+    composer test:concurrency
+
 Use a disposable MySQL **8.4** server with InnoDB and performance_schema enabled.
+Other MySQL 8 servers, such as Laravel Herd's MySQL 8.0 service, are rejected
+unless `TAXONOMY_MYSQL_ALLOW_UNVERIFIED_VERSION=1` is also set. The runner then
+prints a warning and the result is informational; CI keeps the verified 8.4 gate.
 The test user needs CREATE/DROP DATABASE, access to its test tables, and SELECT on
 performance_schema.data_lock_waits and performance_schema.threads. These are test
 infrastructure privileges, not package runtime requirements. No database name is

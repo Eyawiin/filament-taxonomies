@@ -16,6 +16,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Reject paths that differ only by letter case
+        run: |
+          collisions="$(git ls-files | awk -F/ '{p=""; for (i=1;i<=NF;i++){p=(i==1?$i:p"/"$i); print p}}' | sort -u | sort -f | uniq -di)"
+          if [ -n "$collisions" ]; then
+            echo "::error::These paths collide on case-insensitive filesystems (macOS, Windows):"
+            echo "$collisions"
+            exit 1
+          fi
+
       - name: Cache Composer dependencies
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

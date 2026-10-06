@@ -9,6 +9,6 @@ class PerformancePanelProvider extends AdminPanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        return parent::panel($panel)->pages([PerformanceParentPage::class]);
+        return $this->configurePanel($panel)->pages([PerformanceParentPage::class]);
     }
 }

@@ -11,7 +11,7 @@ class BrowserPanelProvider extends AdminPanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        return parent::panel($panel)->pages([BrowserParentPage::class, BrowserAssignmentPage::class]);
+        return $this->configurePanel($panel)->pages([BrowserParentPage::class, BrowserAssignmentPage::class]);
     }
 
     public function boot(): void

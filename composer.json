@@ -57,7 +57,8 @@
         "post-autoload-dump": [
             "@clear",
             "@prepare",
-            "@php ./vendor/bin/testbench package:discover --ansi"
+            "@php ./vendor/bin/testbench package:discover --ansi",
+            "@php ./vendor/bin/testbench filament:assets --ansi"
         ],
         "analyse": "phpstan analyse",
         "lint": "pint",

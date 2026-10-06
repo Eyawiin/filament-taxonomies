@@ -1,6 +1,9 @@
 # Path-based git attributes
 # https://www.kernel.org/pub/software/scm/git/docs/gitattributes.html
 
+# Check out LF on every OS: committed bundles are compared byte for byte and Pint expects LF.
+* text=auto eol=lf
+
 # Ignore all test and documentation with "export-ignore".
 /.github                export-ignore
 /.gitattributes         export-ignore
@@ -57,3 +60,6 @@
 
 /tests-performance      export-ignore
 /playwright.performance.config.js export-ignore
+
+/LocalValetDriver.php   export-ignore
+/.claude                export-ignore

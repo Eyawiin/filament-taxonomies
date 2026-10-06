@@ -2,6 +2,5 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+// Testbench's /_workbench route signs in the testbench.yaml workbench user and opens the panel.
+Route::redirect('/', '/_workbench');

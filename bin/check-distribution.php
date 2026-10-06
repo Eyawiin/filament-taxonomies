@@ -55,7 +55,7 @@ foreach ([$archive, $composerArchive] as $candidate) {
     }
     for ($index = 0; $index < $zip->numFiles; $index++) {
         $name = $zip->getNameIndex($index);
-        if (preg_match('~^(?:\.github/|workbench/|tests(?:[-/])|bin/|build/|node_modules/|vendor/|\.phpunit(?:[./])|coverage/|playwright-report/|test-results/|stubs/|package(?:-lock)?\.json$|playwright|vite\.config|PROJECT_CONTEXT\.md$|ROADMAP\.md$)~', $name)) {
+        if (preg_match('~^(?:\.github/|\.claude/|LocalValetDriver\.php$|workbench/|tests(?:[-/])|bin/|build/|node_modules/|vendor/|\.phpunit(?:[./])|coverage/|playwright-report/|test-results/|stubs/|package(?:-lock)?\.json$|playwright|vite\.config|PROJECT_CONTEXT\.md$|ROADMAP\.md$)~', $name)) {
             throw new RuntimeException("Development file leaked into distribution: {$name}");
         }
     }

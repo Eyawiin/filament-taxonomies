@@ -178,7 +178,7 @@ Reusable assignment form fields are described below.
 
 The workbench supports both the backend API and reusable assignment controls in Filament.
 The workbench `User` already includes `HasTaxonomies` for manual API testing.
-From the repository root in your PHP/WSL terminal:
+From the repository root:
 
 ```bash
 composer build
@@ -475,7 +475,8 @@ writers; other engines and raw writes have no concurrency guarantee here.
 
 ## Development and testing
 
-Use PHP/Composer and Node 24. From a clean checkout:
+The tooling behaves the same on macOS, Linux, Windows and WSL. You need PHP 8.2+
+with Composer and Node 22.12+ (CI uses Node 24). From a clean checkout:
 
 ```bash
 composer install
@@ -493,16 +494,14 @@ bundles byte for byte using locked dependencies.
 
 The committed `testbench.yaml` defines workbench setup. `composer prepare`
 generates ignored `workbench/storage` directories without symlinks. Workbench
-builds run migrations rather than wiping existing data. The development database
-is the gitignored `workbench/database/database.sqlite`, outside Testbench's
-purgeable vendor skeleton and storage directories. Preparation creates it only
-when absent; an existing legacy vendor database is copied with a WAL-aware
-SQLite snapshot before Composer cleanup. Build and serve:
-
-```bash
-npm run build:theme
-composer serve
-```
+builds publish Filament's assets, run migrations rather than wiping existing
+data, and create the workbench login user when it is missing. Composer also
+republishes Filament's assets after every install or update. The development
+database is the gitignored `workbench/database/database.sqlite`, outside
+Testbench's purgeable vendor skeleton and storage directories. Preparation
+creates it only when absent; an existing legacy vendor database is copied with
+a WAL-aware SQLite snapshot before Composer cleanup. To build and open the
+workbench, see [Local backend playground](#local-backend-playground).
 
 Focused browser and fresh-consumer verification:
 
@@ -523,7 +522,9 @@ access, Node, Chromium and PHP ZipArchive. Both ports must be free.
 For independent-process MySQL 8.4 verification, see
 [the concurrency runner](tests-concurrency/README.md). `composer test:concurrency`
 requires an explicitly configured disposable MySQL server and fails if it is
-unavailable. It never silently skips the database gate.
+unavailable. It never silently skips the database gate. Other MySQL 8 servers,
+such as Laravel Herd's, can run it as an informational check with
+`TAXONOMY_MYSQL_ALLOW_UNVERIFIED_VERSION=1`.
 
 Optional isolated scale measurements are documented in
 [the performance harness](tests-performance/README.md); run them with
@@ -535,12 +536,20 @@ All F0 pending specifications have been promoted into required suites.
 
 ## Local backend playground
 
-From the package checkout in WSL:
+The workbench is a small Laravel application with this package installed. It
+keeps its data in the gitignored `workbench/database/database.sqlite` and signs
+you in as `test@example.com` (password `password`). From the package root:
 
 ```bash
+npm run build:theme
 composer demo
 composer serve
 ```
+
+Open <http://127.0.0.1:8000>: the start page signs you in and opens the panel.
+`/_workbench` does the same at any time; log out to try the regular
+`/admin/login` form. Run `npm run build:theme` again after changing Blade views
+or theme CSS, and `composer build` after updating Composer dependencies.
 
 `composer demo` prepares persistent workbench storage, builds/migrates the
 workbench and seeds **Demo Topics** and **Demo Levels**, each with 12 terms across
@@ -559,6 +568,21 @@ Workbench\Database\Factories\DeckFactory::new()->withDemoTerms()->count(10)->cre
 `DemoTaxonomyFactory` has `topics()` and `levels()` states that create nested terms
 through the managed tree service. These models, factories, seeders and the Deck
 resource belong to the local workbench and are excluded from package archives.
+
+### Using a `.test` domain with Laravel Herd
+
+[Laravel Herd](https://herd.laravel.com) can serve the workbench directly, without
+`composer serve`. Build the theme and run `composer demo` (or `composer build`) as
+above, then link the package root once:
+
+```bash
+herd link filament-taxonomies
+```
+
+Open <http://filament-taxonomies.test>. The committed `LocalValetDriver.php`
+points Herd at Testbench's application and resolves `testbench.yaml` from the
+package root, as `composer serve` does. `herd unlink filament-taxonomies` removes
+the site. Other setups keep using `composer serve`.
 
 ### Trying ancestor selection in the workbench
 
