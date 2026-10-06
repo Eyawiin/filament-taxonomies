@@ -69,6 +69,10 @@ class FilamentTaxonomiesServiceProvider extends PackageServiceProvider
                 __DIR__ . '/../resources/dist/components/taxonomy-parent-tree.js',
             ),
             AlpineComponent::make(
+                'taxonomy-assignment-picker',
+                __DIR__ . '/../resources/dist/components/taxonomy-assignment-picker.js',
+            ),
+            AlpineComponent::make(
                 'taxonomy-tree',
                 __DIR__ . '/../resources/dist/components/taxonomy-tree.js',
             ),

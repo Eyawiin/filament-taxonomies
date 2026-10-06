@@ -4,7 +4,7 @@ use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Schema;
 use Workbench\App\Models\Deck;
-use Workbench\Database\Seeders\DemoSeeder;
+use Workbench\Database\Seeders\LargeDemoSeeder;
 
 $app = require __DIR__ . '/bootstrap.php';
 @mkdir(dirname(__DIR__) . '/build', 0755, true);
@@ -31,7 +31,7 @@ foreach ([
 if (! Schema::hasTable('decks')) {
     (require dirname(__DIR__) . '/workbench/database/migrations/2026_10_04_000000_create_decks_table.php')->up();
 }
-$app->make(DemoSeeder::class)->run();
+$app->make(LargeDemoSeeder::class)->run();
 // Reset only this disposable browser fixture, never the persistent workbench database.
 foreach (Deck::whereNotNull('demo_key')->get() as $deck) {
     foreach (['demo-topics' => ['grammar', 'algebra'], 'demo-levels' => ['a1']] as $slug => $terms) {

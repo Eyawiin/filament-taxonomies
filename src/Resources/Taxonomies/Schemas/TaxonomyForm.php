@@ -14,7 +14,8 @@ class TaxonomyForm
             ->components([
                 TextInput::make('name')
                     ->required()
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->helperText('A readable name, such as Topics or Difficulty'),
 
                 TextInput::make('slug')
                     ->unique(table: Taxonomy::class, ignoreRecord: true)

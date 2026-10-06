@@ -26,4 +26,13 @@ class DeckFactory extends Factory
             }
         });
     }
+
+    /** @param list<string> $slugs Existing large-playground terms, including any desired ancestors. */
+    public function withLargeDemoTerms(array $slugs): static
+    {
+        return $this->afterCreating(function (Deck $deck) use ($slugs): void {
+            $taxonomy = Taxonomy::where('slug', LargeDemoTaxonomyFactory::SLUG)->firstOrFail();
+            $deck->syncTaxonomyTerms($taxonomy, $taxonomy->terms()->whereIn('slug', $slugs)->pluck('id')->all());
+        });
+    }
 }

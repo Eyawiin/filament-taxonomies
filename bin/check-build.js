@@ -5,6 +5,7 @@ const files = [
     'resources/dist/filament-taxonomies.js',
     'resources/dist/components/taxonomy-tree.js',
     'resources/dist/components/taxonomy-parent-tree.js',
+    'resources/dist/components/taxonomy-assignment-picker.js',
 ]
 const before = files.map((file) => readFileSync(file))
 execFileSync(process.execPath, ['bin/build.js'], { stdio: 'inherit' })

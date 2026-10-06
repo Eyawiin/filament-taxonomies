@@ -171,3 +171,26 @@ Final nested-group verification: **35 JavaScript tests**, **17 browser tests**
 assignments, axe, narrow dark RTL and stable inline row geometry), reproducible
 assets, focused PHP formatting and whitespace checks pass. Final assets are
 published on localhost. No durable records changed; nothing committed or pushed.
+
+
+## Selected branch refinement (2026-10-04)
+
+Multiple fields now use a compact trigger and separate selected-branch review,
+bounded to three levels, with a staged checkbox picker. The 2026-10-05 refinement
+uses Filament search, checkbox, button and link components inside HTML dialogs
+styled to match Filament. Current paths remain visible as horizontally scrollable
+breadcrumbs with full labels; Back stays mounted. The picker keeps a responsive
+fixed height with independent option scrolling. Removal previews open a separate
+confirmation dialog for either the picker draft or pending field state.
+See README for Apply/Cancel, Undo, and context semantics. The obsolete
+selected-term-branch partial was removed; distribution requires assignment-picker,
+assignment-path and assignment-removal views plus taxonomy-assignment-picker
+compiled component. The existing backend assignment and transaction contracts
+are unchanged. The local large fixture has 534 terms, 25 levels, 90 assigned terms
+in its broad Deck, and 72 duplicate Overview labels.
+
+Pre-refinement regression gates: 443 PHP /1718 assertions; 44 JS; 22 Chromium browser
+cases; PHPStan4; Pint153; strict Composer metadata; current Git/Composer archives,
+copied consumer installation/publishing plus two consumer browser cases.
+Human screen-reader testing remains an acceptance follow-up. User visual review
+is pending; these changes have not been committed or pushed.

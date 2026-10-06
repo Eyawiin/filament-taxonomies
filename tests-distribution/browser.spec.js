@@ -117,11 +117,28 @@ test('copied package fields create, reopen and clear assignments through a consu
         await field.locator('.taxonomy-parent-trigger').click()
         await expect(field.locator('input[type=search]')).toBeFocused()
     }
-    await open(topics)
-    await topics
-        .getByRole('treeitem', { name: 'Topics leaf', exact: true })
-        .click()
-    await page.keyboard.press('Escape')
+    const picker = topics.locator('.taxonomy-assignment-dialog')
+    const chooseTopic = async () => {
+        await open(topics)
+        await expect(picker).toBeVisible()
+        await picker.getByRole('searchbox').fill('Topics leaf')
+        const leaf = picker.getByRole('checkbox', {
+            name: 'Topics leaf',
+            exact: true,
+        })
+        await expect(leaf).not.toBeChecked()
+        await leaf.check()
+    }
+    await chooseTopic()
+    await picker.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(picker).toBeHidden()
+    await expect(topics.locator('.taxonomy-selection-review')).toBeHidden()
+    await chooseTopic()
+    await picker.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(picker).toBeHidden()
+    await expect(topics.locator('.taxonomy-selection-review')).toContainText(
+        'Topics leaf',
+    )
     await open(level)
     await level
         .getByRole('treeitem', { name: 'Levels leaf', exact: true })
@@ -132,7 +149,7 @@ test('copied package fields create, reopen and clear assignments through a consu
         .toEqual(['Topics leaf'])
     const deck = (await state())[0]
     await page.goto('/admin/decks/' + deck.id + '/edit')
-    await expect(topics.locator('.taxonomy-selection-tags')).toContainText(
+    await expect(topics.locator('.taxonomy-selection-review')).toContainText(
         'Topics leaf',
     )
     await expect(level.locator('.taxonomy-parent-trigger')).toContainText(

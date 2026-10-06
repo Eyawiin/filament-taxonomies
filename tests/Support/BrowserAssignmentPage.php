@@ -20,6 +20,8 @@ class BrowserAssignmentPage extends Page
 
     public bool $readOnly = false;
 
+    public bool $multiple = true;
+
     public function mount(): void
     {
         $grammar = TaxonomyTerm::where('slug', 'grammar')->firstOrFail();
@@ -29,7 +31,7 @@ class BrowserAssignmentPage extends Page
     public function form(Schema $schema): Schema
     {
         return $schema->statePath('data')->components([
-            TaxonomySelect::make('topics')->taxonomy('demo-topics')->multiple()->live()
+            TaxonomySelect::make('topics')->taxonomy('demo-topics')->multiple(fn (): bool => $this->multiple)->live()
                 ->disabled(fn (): bool => $this->disabled)->readOnly(fn (): bool => $this->readOnly)
                 ->disableTermWhen(fn (TaxonomyTerm $term): bool => $term->slug === 'algebra'),
             Repeater::make('rows')->schema([
@@ -51,6 +53,12 @@ class BrowserAssignmentPage extends Page
             ->modalSubmitActionLabel('Save assignments')
             ->databaseTransaction()
             ->action(fn () => null)];
+    }
+
+    public function toggleMultiple(): void
+    {
+        $this->multiple = ! $this->multiple;
+        $this->data['topics'] = $this->multiple ? [] : null;
     }
 
     public function removeSelection(): void

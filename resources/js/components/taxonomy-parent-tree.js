@@ -37,7 +37,7 @@ export default function taxonomyParentTree({
             this.expandAncestorSelection()
             this.$watch('search', () => this.recoverFocus())
             this.$watch('state', () => {
-                selectionSummary = null
+                this.invalidateSelectionSummary()
                 this.expandAncestorSelection()
                 if (!this.open) this.activeId = this.selectionId()
                 else
@@ -223,6 +223,10 @@ export default function taxonomyParentTree({
                 }
             }
             return this.state.filter((value) => !removed.has(String(value)))
+        },
+
+        invalidateSelectionSummary() {
+            selectionSummary = null
         },
 
         selectedBelowCount(id) {

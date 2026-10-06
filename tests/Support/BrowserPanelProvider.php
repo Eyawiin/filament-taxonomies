@@ -18,9 +18,10 @@ class BrowserPanelProvider extends AdminPanelProvider
     {
         Route::get('/__assignment-state', function (): array {
             return Deck::orderBy('id')->get()->map(fn ($deck): array => [
-                'id' => $deck->id, 'name' => $deck->name,
+                'id' => $deck->id, 'name' => $deck->name, 'demo_key' => $deck->demo_key,
                 'topics' => $deck->termsForTaxonomy('demo-topics')->pluck('taxonomy_terms.name')->all(),
                 'levels' => $deck->termsForTaxonomy('demo-levels')->pluck('taxonomy_terms.name')->all(),
+                'large_tree' => $deck->termsForTaxonomy('demo-large-tree')->pluck('taxonomy_terms.id')->all(),
             ])->all();
         });
     }

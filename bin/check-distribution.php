@@ -41,7 +41,10 @@ foreach ([$archive, $composerArchive] as $candidate) {
         'resources/lang/en/assignment-tree.php',
         'resources/views/forms/parent-tree-select.blade.php',
         'resources/views/forms/parent-tree-branch.blade.php',
-        'resources/views/forms/selected-term-branch.blade.php',
+        'resources/views/forms/assignment-picker.blade.php',
+        'resources/views/forms/assignment-removal.blade.php',
+        'resources/views/forms/assignment-path.blade.php',
+        'resources/dist/components/taxonomy-assignment-picker.js',
         'resources/views/components/taxonomy-tree.blade.php',
         'resources/lang/en/parent-tree.php', 'resources/css/taxonomy-controls.css',
         'resources/dist/components/taxonomy-tree.js', 'resources/dist/components/taxonomy-parent-tree.js',
@@ -109,7 +112,7 @@ runDistribution([PHP_BINARY, 'artisan', 'filament-taxonomies:install', '--no-int
 runDistribution([PHP_BINARY, 'artisan', 'migrate', '--force'], $consumer);
 runDistribution([PHP_BINARY, 'artisan', 'vendor:publish', '--tag=filament-taxonomies-views', '--no-interaction'], $consumer);
 runDistribution([PHP_BINARY, 'artisan', 'filament:assets'], $consumer);
-foreach (['config/filament-taxonomies.php', 'public/css/eyawiin/filament-taxonomies/taxonomy-controls.css', 'public/js/eyawiin/filament-taxonomies/components/taxonomy-parent-tree.js', 'public/js/eyawiin/filament-taxonomies/components/taxonomy-tree.js'] as $published) {
+foreach (['config/filament-taxonomies.php', 'public/css/eyawiin/filament-taxonomies/taxonomy-controls.css', 'public/js/eyawiin/filament-taxonomies/components/taxonomy-parent-tree.js', 'public/js/eyawiin/filament-taxonomies/components/taxonomy-tree.js', 'public/js/eyawiin/filament-taxonomies/components/taxonomy-assignment-picker.js'] as $published) {
     if (! is_file($consumer . '/' . $published)) {
         throw new RuntimeException("Missing published consumer file: {$published}");
     }

@@ -172,11 +172,11 @@ DB::transaction(function () use ($article): void {
 
 Do not call that cleanup for soft deletion. A polymorphic owner foreign key cannot
 protect eventless deletion; applications remain responsible for those paths.
-Reusable assignment form fields are the next milestone.
+Reusable assignment form fields are described below.
 
 ### Trying assignments in the workbench
 
-P1 provides the backend API. Reusable assignment controls in Filament are P2.
+The workbench supports both the backend API and reusable assignment controls in Filament.
 The workbench `User` already includes `HasTaxonomies` for manual API testing.
 From the repository root in your PHP/WSL terminal:
 
@@ -239,7 +239,7 @@ the owner. They hydrate assigned IDs and save through the scoped P1 assignment
 service after a new owner has been created. Single state is an ID or `null`;
 multiple state is a list of IDs, with `[]` clearing that taxonomy. Neither field
 changes assignments in other taxonomies. By default selecting a branch assigns
-only that term; its disclosure button expands descendants without selecting them.
+only that term; browsing its children does not select them.
 
 For multiple fields, opt into automatic ancestor selection:
 
@@ -251,8 +251,9 @@ TaxonomySelect::make('topic_ids')
 ```
 
 Selecting a child then assigns every visible, permitted ancestor. It does not
-select siblings or descendants. Removing a parent (in the tree or via its tag X)
-also removes its selected descendants; removing a child retains its parents.
+select siblings or descendants. Removing a selected parent
+also removes its selected descendants after an exact removal preview; removing a
+child retains its parents.
 An unavailable or denied ancestor makes its descendants unselectable in this
 mode. Existing child assignments expand in editable form state when the mode is
 enabled; opening the form does not write assignments, and normal saving persists
@@ -261,8 +262,8 @@ ancestor chain; validation checks it again under the taxonomy lock. Read-only an
 disabled fields keep their existing state. Single fields ignore this setting.
 
 Multiple tree options show a checkbox for the term's actual assignment. A parent
-also displays a selected-descendant count, including while collapsed, so its own
-assignment is distinct from selected terms below it. Counts include all assigned
+also displays a selected-descendant count when its children are not shown, so
+its own assignment is distinct from selected terms below it. Counts include all assigned
 descendants, including intermediate ancestors. The UI does not claim to remember
 which persisted assignments were selected automatically.
 
@@ -325,16 +326,44 @@ full sync, including clearing, to protect data the caller cannot see. Handle tho
 through an authorized backend workflow. Current browser term IDs are positive
 integers up to `2^53 - 1`; larger IDs remain unavailable rather than being rounded.
 
-The tree supports search, RTL, disabled/read-only state, keyboard navigation and
-independent expansion. Arrow keys move focus; Enter/Space select or toggle a term;
-Home then Enter/Space clears; Escape closes and returns focus to the trigger.
-Multiple mode displays selected terms as removable Filament badges grouped by the
-tree hierarchy. Parents appear once with their descendants nested inside the group.
-Unassigned ancestors use plain context labels; selected ancestors have their own
-removable badges. Context labels do not add assignments. Each X removes
-only that term in independent mode, or its selected branch in ancestor mode;
-save the form to persist the change. The tree stays open when choosing terms and
-exposes checked states, descendant summaries and a live count.
+Single fields and the parent selector keep the compact searchable tree. Arrow
+keys move focus; Enter/Space selects; Home then Enter/Space clears; Escape closes
+and returns focus to the trigger.
+
+Multiple fields use a compact selection count and a separate **Selected branches**
+review. Each term appears once in the current review; unassigned ancestors are
+marked **Context only** and have no removal control. The review shows up to three
+levels at a time. Use **View N below** to inspect a deeper branch. Its breadcrumb
+path stays visible with full labels and horizontal scrolling; click an ancestor
+to revisit it, **Back** to go up, or **Selected branches** to return to the overview.
+Large reviews and search results initially show 50 rows, with **Show more**.
+
+**Browse** opens a picker with Filament search, checkbox and button components,
+showing one level of terms at a time. Use **Browse** beside a term to open its
+children, **Back** to go up, or search the whole visible taxonomy. The picker keeps
+a responsive fixed height while its options scroll independently; Back remains
+in place and the current breadcrumb path stays visible while browsing. Search
+results include ancestor paths to distinguish identically named terms. Checking
+a term reflects its actual assignment; a parent's descendant count is separate from its checkbox state. **Apply** updates
+the pending form field; **Cancel** or Escape discards the dialog's changes.
+The normal form Save persists assignments. Keyboard users can Tab through the
+controls and press Space to check a term.
+
+A leaf's X removes that term. In independent mode a selected parent's X also
+removes only that parent. In ancestor mode the parent's **Remove branch (N)**
+action opens a separate confirmation dialog listing the exact selected terms it
+will remove. Confirm or cancel that preview; unrelated branches and unselected
+descendants are preserved. **Clear selection** also previews its affected terms.
+Removal inside the picker changes its draft; removal from the branch review
+changes the pending form field. **Undo** restores the last pending removal until another selection or configuration change supersedes it.
+Restricted and unavailable assignments cannot be removed through these controls.
+Changes to permissions, hierarchy or configuration invalidate stale previews and
+Undo; updates to the field while browsing discard the obsolete dialog draft.
+
+The picker and confirmation use HTML dialogs styled to match Filament; their
+controls use native Filament components. The selector supports RTL, dark mode,
+disabled/read-only state, live configuration, repeaters, and use inside a Filament
+action modal.
 
 ## Authorization and visibility
 
@@ -381,8 +410,11 @@ theme, labels, policies and hardware before expanding them.
 A 1,000-term tree is a stress fixture: its management page renders roughly
 37,000 DOM elements and more than 11 MB of decoded HTML. Reducing database queries
 does not make that a responsive large-tree editor. Very deep trees also exhaust
-usable indentation space. Large or deep interactive trees need a separate
-rendering design; they are outside the current responsiveness claim.
+usable indentation space. These management/parent controls are outside the current large-tree responsiveness
+claim. The multiple assignment picker uses a separate bounded rendering design:
+its local stress fixture exercises 534 terms and 25 levels. It still receives the
+complete visible node projection from the server; it does not promise arbitrary
+taxonomy sizes or remote loading.
 
 Managed writes validate hierarchy and coordinate locking. Raw imports do not
 automatically receive those checks. To inspect an import without changing it:
@@ -533,10 +565,33 @@ resource belong to the local workbench and are excluded from package archives.
 The workbench Topics field uses `->multiple()->selectAncestors()` in `DeckResource`.
 Open `/admin/decks/create` or an existing Deck.
 Choose Vocabulary under Languages / English: all three become checked and appear
-as removable tags. Remove English to remove English and Vocabulary while keeping
-Languages. To configure independent selection, remove `->selectAncestors()` or
+in the selected-branch review after **Apply**. Use **Remove branch (2)** beside
+English to preview/remove English and Vocabulary while keeping Languages; try
+**Undo**. To configure independent selection, remove `->selectAncestors()` or
 set it to `false` in the resource schema. This is a field configuration option;
 backend users do not see a mode toggle.
+
+
+### Deep and broad selection playground
+
+```bash
+composer demo:large
+```
+
+This additive command creates **Demo Large Tree** with **534 terms**, six roots,
+a **25-level** branch, 72 repeated **Overview** labels, and long labels. It adds
+three Decks: **Playground: 25 levels**, **Playground: 90 selections**, and
+**Playground: empty selection**. Open `/admin/decks`, edit one of these Decks, and
+use its **Large tree playground** field. Existing names and assignments are
+preserved when you rerun the command. This field appears only after the large
+fixture exists.
+
+Try **View N below** to browse all 25 levels without growing
+indentation; search **Overview** and compare paths; load more of the 90 selected
+terms; remove a branch, inspect its exact scope, and undo it. Test Cancel and
+Apply separately, then save/reopen the Deck to verify persistence.
+Use the empty Deck to build a new selection. These fixtures belong to the
+workbench and are excluded from package archives.
 
 
 ## Upgrade notes for the foundation cleanup
