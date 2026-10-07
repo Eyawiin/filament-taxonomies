@@ -1,42 +1,58 @@
 @props([
     'nodes',
+    'remaining' => 0,
+    'parentId' => null,
+    'searching' => false,
 ])
 
 <ul class="m-0 list-none space-y-2 p-0">
-    @foreach ($nodes as $nodeIndex => $node)
+    @foreach ($nodes as $node)
         @php
-            $previousNode = $nodes[$nodeIndex - 1] ?? null;
-            $nextNode = $nodes[$nodeIndex + 1] ?? null;
-            $hasChildren = $node['children'] !== [];
-            $termId = (int) $node['term']->getKey();
-            $updateAuthorization = \Eyawiin\FilamentTaxonomies\Authorization\TaxonomyTermAuthorization::update($node['term']);
-            $canMove = $updateAuthorization->allowed();
+            $term = $node['term'];
+            $termId = (int) $term->getKey();
+            $hasChildren = $node['hasChildren'];
+            // Null: every branch is rendered and the browser expands them. Otherwise the server decides.
+            $managed = $node['expanded'] !== null;
+            $expanded = (bool) $node['expanded'];
+            $updateAuthorization = \Eyawiin\FilamentTaxonomies\Authorization\TaxonomyTermAuthorization::update($term);
+            $canMove = $updateAuthorization->allowed() && ! $searching;
+            $moveHint = $searching
+                ? __('filament-taxonomies::taxonomies.manage_terms.search_reorder')
+                : __('filament-taxonomies::taxonomies.manage_terms.move_denied');
 
             $storageKey = sprintf(
                 'eyawiin-filament-taxonomies:tree:%s:term:%s:expanded',
-                $node['term']->taxonomy_id,
+                $term->taxonomy_id,
                 $termId,
             );
         @endphp
 
         <li
-            wire:key="taxonomy-term-{{ $node['term']->getKey() }}"
+            {{-- A server-side toggle replaces the row, so drag state and attributes start fresh. --}}
+            wire:key="taxonomy-term-{{ $termId }}{{ $managed ? ($expanded ? '-open' : '-closed') : '' }}"
             data-taxonomy-term
             data-can-move="{{ $canMove ? 'true' : 'false' }}"
-            data-term-id="{{ $node['term']->getKey() }}"
-            x-data="{ expanded: $persist(true).as(@js($storageKey)) }"
-            x-on:taxonomy-tree-set-expanded.window="expanded = $event.detail.expanded"
-            x-on:taxonomy-tree-expand-term.window="
-                if ($event.detail.termId === @js($termId)) {
-                    expanded = true
-                }
-            "
+            data-term-id="{{ $termId }}"
+            data-has-children="{{ $hasChildren ? 'true' : 'false' }}"
+            @unless ($managed)
+                x-data="{ expanded: $persist(true).as(@js($storageKey)) }"
+                x-on:taxonomy-tree-set-expanded.window="expanded = $event.detail.expanded"
+                x-on:taxonomy-tree-expand-term.window="
+                    if ($event.detail.termId === @js($termId)) {
+                        expanded = true
+                    }
+                "
+            @endunless
         >
             <div
                 wire:ignore.self
                 data-taxonomy-row
                 data-has-children="{{ $hasChildren ? 'true' : 'false' }}"
-                x-bind:data-expanded="expanded ? 'true' : 'false'"
+                @if ($managed)
+                    data-expanded="{{ $expanded ? 'true' : 'false' }}"
+                @else
+                    x-bind:data-expanded="expanded ? 'true' : 'false'"
+                @endif
                 draggable="{{ $canMove ? 'true' : 'false' }}"
                 class="
                     relative flex items-center gap-3 rounded-xl border border-gray-200
@@ -59,46 +75,69 @@
                 <div
                     @if ($canMove) data-taxonomy-drag-handle @endif
                     class="flex h-8 w-8 shrink-0 touch-none select-none items-center justify-center text-gray-400 dark:text-gray-500 {{ $canMove ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed opacity-40' }}"
-                    title="{{ $canMove ? __('filament-taxonomies::taxonomies.manage_terms.drag') : __('filament-taxonomies::taxonomies.manage_terms.move_denied') }}"
+                    title="{{ $canMove ? __('filament-taxonomies::taxonomies.manage_terms.drag') : $moveHint }}"
                 >
                     <x-filament::icon
                         icon="heroicon-o-bars-3"
                         class="h-5 w-5"
                     />
                 </div>
-                
+
                 <div class="flex shrink-0 items-center">
-                    @if ($hasChildren)
-                      <div
-                          wire:key="taxonomy-term-toggle-{{ $termId }}"
-                          wire:ignore.self
-                          class="transition-transform duration-100 ease-out"
-                          x-bind:class="expanded ? 'rotate-90' : 'rotate-0'"
-                      >
-                          <x-filament::icon-button
-                              icon="heroicon-o-chevron-right"
-                              :label="__('filament-taxonomies::taxonomies.manage_terms.toggle_children')"
-                              size="sm"
-                              color="gray"
-                              x-on:click="expanded = ! expanded"
-                              x-bind:aria-expanded="expanded"
-                          />
-                      </div>
-                  @else
-                    <div
-                        wire:key="taxonomy-term-placeholder-{{ $termId }}"
-                        class="invisible pointer-events-none"
-                        aria-hidden="true"
-                    >
-                        <x-filament::icon-button
-                            icon="heroicon-o-chevron-right"
-                            :label="__('filament-taxonomies::taxonomies.manage_terms.toggle_children')"
-                            size="sm"
-                            color="gray"
-                            tabindex="-1"
-                        />
-                    </div>
-                @endif
+                    @if (! $hasChildren || ($searching && ! $expanded))
+                        <div
+                            wire:key="taxonomy-term-placeholder-{{ $termId }}"
+                            class="invisible pointer-events-none"
+                            aria-hidden="true"
+                        >
+                            <x-filament::icon-button
+                                icon="heroicon-o-chevron-right"
+                                :label="__('filament-taxonomies::taxonomies.manage_terms.toggle_children')"
+                                size="sm"
+                                color="gray"
+                                tabindex="-1"
+                            />
+                        </div>
+                    @elseif ($searching)
+                        {{-- Matches stay visible while searching, so their branches cannot be collapsed. --}}
+                        <div class="rotate-90 opacity-50" aria-hidden="true">
+                            <x-filament::icon-button
+                                icon="heroicon-o-chevron-right"
+                                :label="__('filament-taxonomies::taxonomies.manage_terms.toggle_children')"
+                                size="sm"
+                                color="gray"
+                                tabindex="-1"
+                                disabled
+                            />
+                        </div>
+                    @elseif ($managed)
+                        <div class="{{ $expanded ? 'rotate-90' : 'rotate-0' }}">
+                            <x-filament::icon-button
+                                icon="heroicon-o-chevron-right"
+                                :label="__('filament-taxonomies::taxonomies.manage_terms.toggle_children')"
+                                size="sm"
+                                color="gray"
+                                wire:click="toggleTerm({{ $termId }})"
+                                :aria-expanded="$expanded ? 'true' : 'false'"
+                            />
+                        </div>
+                    @else
+                        <div
+                            wire:key="taxonomy-term-toggle-{{ $termId }}"
+                            wire:ignore.self
+                            class="transition-transform duration-100 ease-out"
+                            x-bind:class="expanded ? 'rotate-90' : 'rotate-0'"
+                        >
+                            <x-filament::icon-button
+                                icon="heroicon-o-chevron-right"
+                                :label="__('filament-taxonomies::taxonomies.manage_terms.toggle_children')"
+                                size="sm"
+                                color="gray"
+                                x-on:click="expanded = ! expanded"
+                                x-bind:aria-expanded="expanded"
+                            />
+                        </div>
+                    @endif
                 </div>
 
                 <div class="flex min-w-0 flex-1 items-center gap-3">
@@ -108,63 +147,92 @@
                     />
 
                     <div class="min-w-0">
-                        <div class="truncate text-sm font-medium text-gray-950 dark:text-white">
-                            {{ $node['term']->name }}
+                        <div @class([
+                            'truncate text-sm font-medium',
+                            'text-gray-950 dark:text-white' => $node['match'] !== false,
+                            'text-gray-500 dark:text-gray-400' => $node['match'] === false,
+                        ])>
+                            {{ $term->name }}
                         </div>
 
                         <div class="truncate text-xs text-gray-500 dark:text-gray-400">
-                            {{ $node['term']->slug }}
+                            {{ $term->slug }}
                         </div>
                     </div>
+
+                    @if ($hasChildren && (! $managed || ! $expanded))
+                        <span
+                            class="taxonomy-tree-count"
+                            title="{{ trans_choice('filament-taxonomies::taxonomies.manage_terms.children', $node['childCount'], ['count' => $node['childCount']]) }}"
+                            @unless ($managed) x-show="! expanded" x-cloak @endunless
+                        >
+                            <span aria-hidden="true">{{ $node['childCount'] }}</span>
+                            <span class="taxonomy-sr-only">{{ trans_choice('filament-taxonomies::taxonomies.manage_terms.children', $node['childCount'], ['count' => $node['childCount']]) }}</span>
+                        </span>
+                    @endif
                 </div>
 
                 <div class="taxonomy-row-actions flex shrink-0 items-center">
-                    <x-filament::icon-button
-                        icon="heroicon-o-arrow-up"
-                        :label="__('filament-taxonomies::taxonomies.manage_terms.move_up', ['name' => $node['term']->name])"
-                        :disabled="! $canMove || $previousNode === null"
-                        :tooltip="! $canMove ? __('filament-taxonomies::taxonomies.manage_terms.move_denied') : ($previousNode === null ? __('filament-taxonomies::taxonomies.manage_terms.first_term') : null)"
-                        size="sm"
-                        :color="! $canMove || $previousNode === null ? 'gray' : 'primary'"
-                        class="taxonomy-move-button"
-                        x-on:click="$dispatch('taxonomy-tree-move-term', {
-                            termId: Number($el.closest('[data-taxonomy-term]').dataset.termId),
-                            targetId: Number($el.closest('[data-taxonomy-term]').previousElementSibling.dataset.termId),
-                            placement: 'before',
-                        })"
-                    />
-
-                    <x-filament::icon-button
-                        icon="heroicon-o-arrow-down"
-                        :label="__('filament-taxonomies::taxonomies.manage_terms.move_down', ['name' => $node['term']->name])"
-                        :disabled="! $canMove || $nextNode === null"
-                        :tooltip="! $canMove ? __('filament-taxonomies::taxonomies.manage_terms.move_denied') : ($nextNode === null ? __('filament-taxonomies::taxonomies.manage_terms.last_term') : null)"
-                        size="sm"
-                        :color="! $canMove || $nextNode === null ? 'gray' : 'primary'"
-                        class="taxonomy-move-button"
-                        x-on:click="$dispatch('taxonomy-tree-move-term', {
-                            termId: Number($el.closest('[data-taxonomy-term]').dataset.termId),
-                            targetId: Number($el.closest('[data-taxonomy-term]').nextElementSibling.dataset.termId),
-                            placement: 'after',
-                        })"
-                    />
+                    @foreach (['up' => [$node['previousId'], 'before', 'first_term'], 'down' => [$node['nextId'], 'after', 'last_term']] as $direction => [$targetId, $placement, $boundary])
+                        @php
+                            $canMoveThisWay = $canMove && $targetId !== null;
+                        @endphp
+                        <x-filament::icon-button
+                            :icon="'heroicon-o-arrow-' . $direction"
+                            :label="__('filament-taxonomies::taxonomies.manage_terms.move_' . $direction, ['name' => $term->name])"
+                            :disabled="! $canMoveThisWay"
+                            :tooltip="! $canMove ? $moveHint : ($targetId === null ? __('filament-taxonomies::taxonomies.manage_terms.' . $boundary) : null)"
+                            size="sm"
+                            :color="$canMoveThisWay ? 'primary' : 'gray'"
+                            class="taxonomy-move-button"
+                            :x-on:click="$canMoveThisWay ? '$dispatch(\'taxonomy-tree-move-term\', { termId: ' . $termId . ', targetId: ' . $targetId . ', placement: \'' . $placement . '\' })' : null"
+                        />
+                    @endforeach
 
                     {{-- Rendering uses loaded visible records. Mounted actions retain their fresh authorization callbacks. --}}
                     {{ (($this->editTermAction)(['term' => $termId]))
                         ->authorize($updateAuthorization) }}
 
                     {{ (($this->deleteTermAction)(['term' => $termId]))
-                        ->authorize(\Eyawiin\FilamentTaxonomies\Authorization\TaxonomyTermAuthorization::delete($node['term'])) }}
+                        ->authorize(\Eyawiin\FilamentTaxonomies\Authorization\TaxonomyTermAuthorization::delete($term)) }}
                 </div>
             </div>
 
-            @if ($hasChildren)
+            @if ($hasChildren && ! $managed)
                 <div wire:ignore.self x-show="expanded" x-collapse.duration.100ms>
                     <div class="ps-8 pt-2">
-                        <x-filament-taxonomies::taxonomy-tree :nodes="$node['children']" />
+                        <x-filament-taxonomies::taxonomy-tree
+                            :nodes="$node['children']"
+                            :remaining="$node['remaining']"
+                            :parent-id="$termId"
+                            :searching="$searching"
+                        />
                     </div>
+                </div>
+            @elseif ($hasChildren && $expanded)
+                <div class="ps-8 pt-2">
+                    <x-filament-taxonomies::taxonomy-tree
+                        :nodes="$node['children']"
+                        :remaining="$node['remaining']"
+                        :parent-id="$termId"
+                        :searching="$searching"
+                    />
                 </div>
             @endif
         </li>
     @endforeach
+
+    @if ($remaining > 0)
+        <li wire:key="taxonomy-term-more-{{ $parentId ?? 'root' }}" class="taxonomy-tree-more">
+            <x-filament::link
+                tag="button"
+                color="gray"
+                size="sm"
+                icon="heroicon-m-chevron-double-down"
+                :wire:click="'showMoreTerms(' . ($parentId ?? 'null') . ')'"
+            >
+                {{ trans_choice('filament-taxonomies::taxonomies.manage_terms.show_more', $remaining, ['count' => $remaining]) }}
+            </x-filament::link>
+        </li>
+    @endif
 </ul>

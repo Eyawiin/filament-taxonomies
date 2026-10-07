@@ -34,6 +34,8 @@ class FilamentTaxonomiesPlugin implements Plugin
 
     protected bool $hasTaxonomyNavigationGroup = false;
 
+    protected int | Closure $lazyLoadingThreshold = 100;
+
     public function getId(): string
     {
         return 'filament-taxonomies';
@@ -170,5 +172,22 @@ class FilamentTaxonomiesPlugin implements Plugin
         }
 
         return $this->evaluate($this->taxonomyNavigationGroup);
+    }
+
+    /**
+     * Taxonomies with more visible terms than this show their term tree branch by branch:
+     * the management page loads children when a branch is expanded, and the parent selector
+     * loads them on demand. Use 0 to always load on demand.
+     */
+    public function lazyLoadingThreshold(int | Closure $terms): static
+    {
+        $this->lazyLoadingThreshold = $terms;
+
+        return $this;
+    }
+
+    public function getLazyLoadingThreshold(): int
+    {
+        return max(0, (int) $this->evaluate($this->lazyLoadingThreshold));
     }
 }

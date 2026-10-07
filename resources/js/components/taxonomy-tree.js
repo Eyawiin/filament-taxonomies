@@ -1,6 +1,11 @@
 import { createTreeDrag } from '../drag/pragmatic-tree.js'
 
-export default function taxonomyTreeDrag({ dropTerm, moveFailed }) {
+export default function taxonomyTreeDrag({
+    dropTerm,
+    expandTerm = null,
+    lazy = false,
+    moveFailed,
+}) {
     let adapter
     let observer
     let destroyed = false
@@ -41,6 +46,11 @@ export default function taxonomyTreeDrag({ dropTerm, moveFailed }) {
                     if (!destroyed) adapter.refresh()
                 })
             }
+        },
+
+        // Trees that load on demand open a hovered branch on the server; rendered trees do it in place.
+        expand(termId) {
+            if (lazy && expandTerm && !destroyed) expandTerm(termId)
         },
 
         destroy() {

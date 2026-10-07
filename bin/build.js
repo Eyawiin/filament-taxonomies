@@ -62,12 +62,6 @@ compile({
 
 compile({
     ...defaultOptions,
-    entryPoints: ['./resources/js/components/taxonomy-parent-tree.js'],
-    outfile: './resources/dist/components/taxonomy-parent-tree.js',
-})
-
-compile({
-    ...defaultOptions,
-    entryPoints: ['./resources/js/components/taxonomy-assignment-picker.js'],
-    outfile: './resources/dist/components/taxonomy-assignment-picker.js',
+    entryPoints: ['./resources/js/components/taxonomy-term-field.js'],
+    outfile: './resources/dist/components/taxonomy-term-field.js',
 })

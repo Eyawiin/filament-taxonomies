@@ -9,6 +9,7 @@ use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyAssignmentService;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
 use Eyawiin\FilamentTaxonomies\Support\TaxonomyIdentity;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyOutline;
 use Filament\Forms\Components\Repeater;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -18,8 +19,6 @@ use LogicException;
 
 /**
  * A taxonomy-scoped relationship field. The owner must use HasTaxonomies.
- *
- * @phpstan-import-type ParentNode from TaxonomyTreeField
  */
 class TaxonomySelect extends TaxonomyTreeField
 {
@@ -138,41 +137,78 @@ class TaxonomySelect extends TaxonomyTreeField
         return app(TaxonomyAssignmentService::class)->resolveTaxonomy($this->evaluate($this->taxonomyReference));
     }
 
-    public function getNodes(): array
+    public function getEmptyOptionLabel(): ?string
     {
-        $this->assertAssignmentContext();
-
-        return $this->nodesForTaxonomy($this->getTaxonomy());
-    }
-
-    /** @return list<ParentNode> */
-    protected function nodesForTaxonomy(Taxonomy $taxonomy): array
-    {
-        $allowed = $this->canAssign($taxonomy);
-
-        $nodes = TaxonomyTreeOptions::flatten(
-            TaxonomyIdentity::browserTree(app(TaxonomyTreeService::class)->getTree($taxonomy)),
-            fn (TaxonomyTerm $term): string => (! $allowed || $this->isTermDisabled($term, $taxonomy))
-                ? __('filament-taxonomies::assignment-tree.denied') : '',
-        );
-        if ($this->shouldSelectAncestors()) {
-            $disabled = array_column(array_filter($nodes, static fn (array $node): bool => $node['disabled']), 'id');
-            foreach ($nodes as &$node) {
-                if (! $node['disabled'] && array_intersect($node['ancestors'], $disabled) !== []) {
-                    $node['disabled'] = true;
-                    $node['reason'] = __('filament-taxonomies::assignment-tree.ancestor_denied');
-                }
-            }
-            unset($node);
-        }
-
-        return $nodes;
+        return __('filament-taxonomies::assignment-tree.none');
     }
 
     public function getTreeConfiguration(): array
     {
-        return [...parent::getTreeConfiguration(), 'multiple' => $this->isMultiple(), 'selectAncestors' => $this->shouldSelectAncestors(),
-            'readOnly' => $this->isReadOnly() || ! $this->canAssign($this->getTaxonomy())];
+        $this->assertAssignmentContext();
+        $configuration = parent::getTreeConfiguration();
+        $configuration['readOnly'] = $configuration['readOnly'] || ! $this->canAssign($this->getTaxonomy());
+
+        return $configuration;
+    }
+
+    public function getNodes(): array
+    {
+        $this->assertAssignmentContext();
+
+        return parent::getNodes();
+    }
+
+    protected function reasons(array $ids, TaxonomyOutline $outline, Taxonomy $taxonomy): array
+    {
+        if (! $this->canAssign($taxonomy)) {
+            return array_fill_keys($ids, __('filament-taxonomies::assignment-tree.denied'));
+        }
+        $withAncestors = $this->shouldSelectAncestors();
+        $checked = $ids;
+        if ($withAncestors) {
+            foreach ($ids as $id) {
+                array_push($checked, ...$outline->ancestors($id));
+            }
+        }
+        $denied = $this->deniedTerms(array_values(array_unique($checked)), $taxonomy);
+
+        $reasons = [];
+        foreach ($ids as $id) {
+            $reasons[$id] = match (true) {
+                isset($denied[$id]) => __('filament-taxonomies::assignment-tree.denied'),
+                $withAncestors && array_intersect_key($denied, array_flip($outline->ancestors($id))) !== [] => __('filament-taxonomies::assignment-tree.ancestor_denied'),
+                default => '',
+            };
+        }
+
+        return $reasons;
+    }
+
+    /**
+     * Terms that disableTermWhen() forbids, keyed by ID.
+     *
+     * @param  list<int>  $ids
+     * @return array<int, true>
+     */
+    protected function deniedTerms(array $ids, Taxonomy $taxonomy): array
+    {
+        if ($this->termDisabled === null || $ids === []) {
+            return [];
+        }
+        $terms = $taxonomy->terms();
+        $model = $terms->getRelated();
+        // Large requests come from fully loaded trees; one read of the taxonomy beats many key lists.
+        $query = count($ids) > 500 ? $terms : $terms->whereIn($model->getQualifiedKeyName(), $ids);
+        $wanted = array_flip($ids);
+        $denied = [];
+        foreach ($query->get([$model->qualifyColumn('*')]) as $term) {
+            $id = TaxonomyIdentity::normalize($term->getRawOriginal($term->getKeyName()));
+            if ($id !== null && isset($wanted[$id]) && $this->isTermDisabled($term, $taxonomy)) {
+                $denied[$id] = true;
+            }
+        }
+
+        return $denied;
     }
 
     /** @internal Native form validation acquires locks before owner writes in an outer transaction. */
@@ -224,14 +260,19 @@ class TaxonomySelect extends TaxonomyTreeField
         if ($ids === null || ! $this->canAssign($taxonomy)) {
             return false;
         }
-        $nodes = $this->nodesForTaxonomy($taxonomy);
-        $available = array_column(array_filter($nodes, static fn (array $node): bool => ! $node['disabled']), 'id');
-        if (array_diff($ids, $available) !== []) {
+        // A fresh read: under the taxonomy lock this must not reuse what the form rendered.
+        $outline = TaxonomyOutline::for($taxonomy);
+        foreach ($ids as $id) {
+            if (! $outline->has($id)) {
+                return false;
+            }
+        }
+        if (array_filter($this->reasons($ids, $outline, $taxonomy)) !== []) {
             return false;
         }
         if ($this->shouldSelectAncestors()) {
-            foreach ($nodes as $node) {
-                if (in_array($node['id'], $ids, true) && array_diff($node['ancestors'], $ids) !== []) {
+            foreach ($ids as $id) {
+                if (array_diff($outline->ancestors($id), $ids) !== []) {
                     return false;
                 }
             }
@@ -251,14 +292,18 @@ class TaxonomySelect extends TaxonomyTreeField
         if (! $this->shouldSelectAncestors() || $this->isDisabled() || $this->isReadOnly()) {
             return $ids;
         }
-        $nodes = array_column($this->nodesForTaxonomy($taxonomy), null, 'id');
+        $outline = $this->outline();
+        $visible = array_values(array_filter(
+            array_map(static fn (int | string $id): ?int => TaxonomyIdentity::normalize($id, TaxonomyIdentity::MAX_BROWSER_ID), $ids),
+            static fn (?int $id): bool => $id !== null && $outline->has($id),
+        ));
+        $reasons = $this->reasons($visible, $outline, $taxonomy);
         $expanded = $ids;
-        foreach ($ids as $id) {
-            $node = $nodes[$id] ?? null;
-            if ($node === null || $node['disabled']) {
+        foreach ($visible as $id) {
+            if ($reasons[$id] !== '') {
                 continue;
             }
-            foreach ($node['ancestors'] as $ancestor) {
+            foreach ($outline->ancestors($id) as $ancestor) {
                 if (! in_array($ancestor, $expanded, false)) {
                     $expanded[] = $ancestor;
                 }

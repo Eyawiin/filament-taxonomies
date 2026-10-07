@@ -14,8 +14,10 @@ use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\Schemas\TaxonomyTermForm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
+use Eyawiin\FilamentTaxonomies\Support\ManagedTermTree;
 use Eyawiin\FilamentTaxonomies\Support\TaxonomyIdentity;
 use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyOutline;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -27,13 +29,31 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @phpstan-import-type ManagedBranch from ManagedTermTree
+ */
 class ManageTaxonomyTerms extends Page
 {
     use InteractsWithRecord;
 
+    /** Children shown per branch, and added by "Show more", when the tree loads on demand. */
+    public const TERMS_PER_PAGE = 50;
+
+    public const SEARCH_LIMIT = 100;
+
+    /** Bounds the expanded branches remembered per taxonomy in the session. */
+    public const MAX_EXPANDED = 500;
+
     protected static string $resource = TaxonomyResource::class;
 
+    public string $termSearch = '';
+
+    /** @var array<int|string, mixed> Children shown per branch, keyed by term ID or 'root'. Browser state; read through termLimits(). */
+    public array $termLimits = [];
+
     private bool $isMutatingTerms = false;
+
+    private ?TaxonomyOutline $outline = null;
 
     protected string $view = 'filament-taxonomies::resources.taxonomies.pages.manage-taxonomy-terms';
 
@@ -105,21 +125,141 @@ class ManageTaxonomyTerms extends Page
                     $this->mutateTermForm($schema, function (TaxonomyTreeService $service) use ($data, $schema): void {
                         TaxonomyTermAuthorization::create($this->getRecord())->authorize();
                         $parent = $this->resolveParent($data['parent_id'] ?? null, $schema);
-                        $service->createTerm($this->getRecord(), (string) $data['name'], (string) $data['slug'], $parent);
+                        $term = $service->createTerm($this->getRecord(), (string) $data['name'], (string) $data['slug'], $parent);
                         if ($parent !== null) {
                             $this->expandAfterCommit((int) $parent->getKey());
                         }
+                        $this->revealAfterCommit((int) $term->getKey());
                     });
                 }),
         ];
     }
 
     /**
-     * @return list<array{term: TaxonomyTerm, children: list<mixed>}>
+     * The rendered part of the tree: everything for small taxonomies, otherwise the expanded
+     * branches a page at a time. A search shows matches below their ancestors instead.
+     *
+     * @return array{nodes: list<mixed>, remaining: int, total: int|null}
      */
     public function getTermTree(): array
     {
-        return TaxonomyIdentity::browserTree(app(TaxonomyTreeService::class)->getTree($this->getRecord()));
+        $outline = $this->outline();
+        $search = $this->getTermSearch();
+        if ($search !== '') {
+            return ManagedTermTree::search($this->getRecord(), $outline, $search, self::SEARCH_LIMIT);
+        }
+        $tree = $this->isLazy()
+            ? ManagedTermTree::expanded($this->getRecord(), $outline, array_fill_keys($this->expandedTermIds(), true), $this->termLimits(), self::TERMS_PER_PAGE)
+            : ManagedTermTree::complete($this->getRecord(), $outline);
+
+        return [...$tree, 'total' => null];
+    }
+
+    /** Large taxonomies load their branches on demand; see FilamentTaxonomiesPlugin::lazyLoadingThreshold(). */
+    public function isLazy(): bool
+    {
+        return $this->outline()->count() > TaxonomyResource::plugin()->getLazyLoadingThreshold();
+    }
+
+    public function getTermSearch(): string
+    {
+        return trim(mb_substr($this->termSearch, 0, 255));
+    }
+
+    public function hasTerms(): bool
+    {
+        return $this->outline()->count() > 0;
+    }
+
+    public function toggleTerm(mixed $termId): void
+    {
+        $id = $this->normalizeTermId($termId);
+        if ($id === null) {
+            return;
+        }
+        $expanded = $this->expandedTermIds();
+        $this->storeExpandedTermIds(in_array($id, $expanded, true)
+            ? array_values(array_diff($expanded, [$id]))
+            : [...$expanded, $id]);
+    }
+
+    /** Opens a branch, for example while a dragged term hovers over it. */
+    public function expandTerm(mixed $termId): void
+    {
+        $id = $this->normalizeTermId($termId);
+        if ($id !== null && ! in_array($id, $this->expandedTermIds(), true)) {
+            $this->storeExpandedTermIds([...$this->expandedTermIds(), $id]);
+        }
+    }
+
+    public function collapseAllTerms(): void
+    {
+        $this->storeExpandedTermIds([]);
+        $this->termLimits = [];
+    }
+
+    public function showMoreTerms(mixed $parentId = null): void
+    {
+        $id = $parentId === null ? null : $this->normalizeTermId($parentId);
+        if ($parentId !== null && $id === null) {
+            return;
+        }
+        $limits = $this->termLimits();
+        $key = $id ?? 'root';
+        $limits[$key] = min(
+            count($this->outline()->children($id)),
+            max(self::TERMS_PER_PAGE, $limits[$key] ?? 0) + self::TERMS_PER_PAGE,
+        );
+        $this->termLimits = $limits;
+    }
+
+    /**
+     * The public property is browser state; keep only sane page sizes for real branches.
+     *
+     * @return array<int|string, int>
+     */
+    private function termLimits(): array
+    {
+        $limits = [];
+        foreach ($this->termLimits as $key => $limit) {
+            $branch = $key === 'root' ? 'root' : $this->normalizeTermId($key);
+            if ($branch !== null && is_int($limit) && $limit > 0) {
+                $limits[$branch] = min($limit, 10_000);
+            }
+        }
+
+        return $limits;
+    }
+
+    /** @return list<int> */
+    private function expandedTermIds(): array
+    {
+        $stored = session()->get($this->expansionKey(), []);
+        $ids = [];
+        foreach (is_array($stored) ? $stored : [] as $id) {
+            $id = $this->normalizeTermId($id);
+            if ($id !== null && ! in_array($id, $ids, true)) {
+                $ids[] = $id;
+            }
+        }
+
+        return $ids;
+    }
+
+    /** @param list<int> $ids */
+    private function storeExpandedTermIds(array $ids): void
+    {
+        session()->put($this->expansionKey(), array_slice(array_values(array_unique($ids)), -self::MAX_EXPANDED));
+    }
+
+    private function expansionKey(): string
+    {
+        return 'filament-taxonomies.expanded.' . $this->getRecord()->getKey();
+    }
+
+    private function outline(): TaxonomyOutline
+    {
+        return $this->outline ??= TaxonomyOutline::for($this->getRecord());
     }
 
     public function editTermAction(): Action
@@ -157,6 +297,7 @@ class ManageTaxonomyTerms extends Page
                     $term->name = (string) $data['name'];
                     $term->slug = (string) $data['slug'];
                     $service->setParent($term, $parent);
+                    $this->revealAfterCommit((int) $term->getKey());
                 });
             });
     }
@@ -277,6 +418,7 @@ class ManageTaxonomyTerms extends Page
             if ($position === TaxonomyTermDropPosition::Inside) {
                 $this->expandAfterCommit((int) $target->getKey());
             }
+            $this->revealAfterCommit((int) $term->getKey());
         });
     }
 
@@ -307,6 +449,7 @@ class ManageTaxonomyTerms extends Page
             if ($parent !== null && $oldParentId !== (int) $parent->getKey()) {
                 $this->expandAfterCommit((int) $parent->getKey());
             }
+            $this->revealAfterCommit((int) $term->getKey());
         });
     }
 
@@ -326,14 +469,41 @@ class ManageTaxonomyTerms extends Page
                 return $operation($service);
             } finally {
                 $this->isMutatingTerms = false;
+                $this->outline = null;
             }
         });
     }
 
+    /** Fully rendered trees expand the branch in the browser. */
     private function expandAfterCommit(int $termId): void
     {
-        $this->getRecord()->getConnection()->afterCommit(
-            fn () => $this->dispatch('taxonomy-tree-expand-term', termId: $termId),
-        );
+        $this->getRecord()->getConnection()->afterCommit(function () use ($termId): void {
+            $this->outline = null;
+            if (! $this->isLazy()) {
+                $this->dispatch('taxonomy-tree-expand-term', termId: $termId);
+            }
+        });
+    }
+
+    /** After a change on demand-loaded trees, open every ancestor and page so the term is shown. */
+    private function revealAfterCommit(int $termId): void
+    {
+        $this->getRecord()->getConnection()->afterCommit(function () use ($termId): void {
+            $this->outline = null;
+            $outline = $this->outline();
+            if (! $this->isLazy() || ! $outline->has($termId)) {
+                return;
+            }
+            $ancestors = $outline->ancestors($termId);
+            $this->storeExpandedTermIds([...$this->expandedTermIds(), ...$ancestors]);
+            $parent = $outline->parent($termId);
+            $limits = $this->termLimits();
+            $key = $parent ?? 'root';
+            $index = array_search($termId, $outline->children($parent), true);
+            if ($index !== false && $index >= max(self::TERMS_PER_PAGE, $limits[$key] ?? 0)) {
+                $limits[$key] = $index + 1;
+                $this->termLimits = $limits;
+            }
+        });
     }
 }

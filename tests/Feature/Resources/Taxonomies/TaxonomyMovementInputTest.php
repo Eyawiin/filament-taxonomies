@@ -79,7 +79,8 @@ it('rejects rounded browser IDs instead of moving their stored neighbour', funct
         ->not->toContain(9999, 9_007_199_254_740_992, 9_007_199_254_740_993);
     $this->withoutExceptionHandling();
     $component = Livewire::test(ManageTaxonomyTerms::class, ['record' => $taxonomy->id]);
-    expect(collect($component->instance()->getTermTree())->pluck('term.id')->all())
+    expect(collect($component->instance()->getTermTree()['nodes'])->pluck('term.id')->all())
+        ->not->toBeEmpty()
         ->not->toContain(9_007_199_254_740_992, 9_007_199_254_740_993);
     expect(fn () => $component->call('dropTerm', (int) (float) 9_007_199_254_740_993, $target->id, 'before'))
         ->toThrow(ModelNotFoundException::class);

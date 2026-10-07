@@ -5,7 +5,6 @@ namespace Eyawiin\FilamentTaxonomies\Forms;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Models\TaxonomyTerm;
 use Eyawiin\FilamentTaxonomies\Resources\Taxonomies\TaxonomyResource;
-use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
 use Eyawiin\FilamentTaxonomies\Support\TaxonomyIdentity;
 use Eyawiin\FilamentTaxonomies\Support\TaxonomyModels;
 use Filament\Resources\Resource as FilamentResource;
@@ -35,31 +34,17 @@ class TaxonomyParentSelect
             $term = $terms->findOrFail($term->getKey(), [$terms->getRelated()->qualifyColumn('*')]);
         }
 
-        $treeService = app(TaxonomyTreeService::class);
-        $nodes = TaxonomyTreeOptions::flatten(
-            TaxonomyIdentity::browserTree($treeService->getTree($taxonomy)),
-            static function (TaxonomyTerm $candidate, array $ancestors) use ($term): string {
-                if ($term === null) {
-                    return '';
-                }
-                if ($candidate->getKey() === $term->getKey()) {
-                    return __('filament-taxonomies::parent-tree.current');
-                }
-
-                return in_array((int) $term->getKey(), $ancestors, true) ? __('filament-taxonomies::parent-tree.cycle') : '';
-            },
-        );
-        $availableIds = array_column(array_filter(
-            $nodes,
-            static fn (array $node): bool => ! $node['disabled'],
-        ), 'id');
-
         return TaxonomyParentField::make('parent_id')
+            ->parentOf($taxonomy, $term)
             ->label(__('filament-taxonomies::parent-tree.parent'))
+            ->lazyLoadingThreshold(static fn (): int => TaxonomyResource::plugin()->getLazyLoadingThreshold())
             ->stateCast(new TaxonomyParentIdCast)
-            ->nodes($nodes)
             ->nullable()
-            ->rules(['integer', 'min:1', Rule::in($availableIds)])
+            ->rules(static fn (TaxonomyParentField $component): array => [
+                'integer',
+                'min:1',
+                Rule::in($component->getAvailableIds()),
+            ])
             ->exists(
                 table: TaxonomyModels::term(),
                 column: 'id',

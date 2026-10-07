@@ -37,17 +37,17 @@ foreach ([$archive, $composerArchive] as $candidate) {
         'database/migrations/0004_create_taxonomy_term_assignments_table.php',
         'src/Concerns/HasTaxonomies.php', 'src/Services/TaxonomyAssignmentService.php',
         'src/Forms/TaxonomySelect.php', 'src/Forms/TaxonomySelectionRule.php',
-        'src/Forms/TaxonomyTreeField.php', 'src/Forms/TaxonomyTreeOptions.php',
+        'src/Forms/TaxonomyTreeField.php', 'src/Support/TaxonomyOutline.php', 'src/Support/ManagedTermTree.php',
         'resources/lang/en/assignment-tree.php',
-        'resources/views/forms/parent-tree-select.blade.php',
-        'resources/views/forms/parent-tree-branch.blade.php',
-        'resources/views/forms/assignment-picker.blade.php',
-        'resources/views/forms/assignment-removal.blade.php',
-        'resources/views/forms/assignment-path.blade.php',
-        'resources/dist/components/taxonomy-assignment-picker.js',
+        'resources/views/forms/term-tree-field.blade.php',
+        'resources/views/forms/term-tree/tree.blade.php',
+        'resources/views/forms/term-tree/dropdown.blade.php',
+        'resources/views/forms/term-tree/rows.blade.php',
+        'resources/views/forms/term-tree/search.blade.php',
+        'resources/dist/components/taxonomy-term-field.js',
         'resources/views/components/taxonomy-tree.blade.php',
         'resources/lang/en/parent-tree.php', 'resources/css/taxonomy-controls.css',
-        'resources/dist/components/taxonomy-tree.js', 'resources/dist/components/taxonomy-parent-tree.js',
+        'resources/dist/components/taxonomy-tree.js',
     ] as $required) {
         if ($zip->locateName($required) === false) {
             throw new RuntimeException("Missing runtime distribution file: {$required}");
@@ -112,7 +112,7 @@ runDistribution([PHP_BINARY, 'artisan', 'filament-taxonomies:install', '--no-int
 runDistribution([PHP_BINARY, 'artisan', 'migrate', '--force'], $consumer);
 runDistribution([PHP_BINARY, 'artisan', 'vendor:publish', '--tag=filament-taxonomies-views', '--no-interaction'], $consumer);
 runDistribution([PHP_BINARY, 'artisan', 'filament:assets'], $consumer);
-foreach (['config/filament-taxonomies.php', 'public/css/eyawiin/filament-taxonomies/taxonomy-controls.css', 'public/js/eyawiin/filament-taxonomies/components/taxonomy-parent-tree.js', 'public/js/eyawiin/filament-taxonomies/components/taxonomy-tree.js', 'public/js/eyawiin/filament-taxonomies/components/taxonomy-assignment-picker.js'] as $published) {
+foreach (['config/filament-taxonomies.php', 'public/css/eyawiin/filament-taxonomies/taxonomy-controls.css', 'public/js/eyawiin/filament-taxonomies/components/taxonomy-term-field.js', 'public/js/eyawiin/filament-taxonomies/components/taxonomy-tree.js'] as $published) {
     if (! is_file($consumer . '/' . $published)) {
         throw new RuntimeException("Missing published consumer file: {$published}");
     }

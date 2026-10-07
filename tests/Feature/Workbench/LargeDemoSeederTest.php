@@ -1,8 +1,7 @@
 <?php
 
-use Eyawiin\FilamentTaxonomies\Forms\TaxonomyTreeOptions;
 use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
-use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
+use Eyawiin\FilamentTaxonomies\Support\TaxonomyOutline;
 use Eyawiin\FilamentTaxonomies\Tests\Support\Assignments\FormFixture;
 use Workbench\App\Models\Deck;
 use Workbench\Database\Factories\LargeDemoTaxonomyFactory;
@@ -16,9 +15,10 @@ it('adds a repeatable deep and broad playground without changing existing data o
     $this->seed(LargeDemoSeeder::class);
 
     $taxonomy = Taxonomy::where('slug', LargeDemoTaxonomyFactory::SLUG)->firstOrFail();
-    $nodes = TaxonomyTreeOptions::flatten(app(TaxonomyTreeService::class)->getTree($taxonomy), fn (): string => '');
+    $outline = TaxonomyOutline::for($taxonomy);
     expect($taxonomy->terms()->count())->toBe(LargeDemoTaxonomyFactory::TERM_COUNT)
-        ->and(max(array_map(fn (array $node): int => count($node['ancestors']) + 1, $nodes)))->toBe(LargeDemoTaxonomyFactory::MAX_DEPTH)
+        ->and($outline->count())->toBe(LargeDemoTaxonomyFactory::TERM_COUNT)
+        ->and(max(array_map(fn (int $id): int => count($outline->ancestors($id)) + 1, $outline->ids())))->toBe(LargeDemoTaxonomyFactory::MAX_DEPTH)
         ->and($taxonomy->terms()->where('name', 'Overview')->count())->toBe(72)
         ->and(Deck::count())->toBe(7);
 

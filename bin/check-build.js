@@ -3,8 +3,7 @@ import { execFileSync } from 'node:child_process'
 
 const files = [
     'resources/dist/components/taxonomy-tree.js',
-    'resources/dist/components/taxonomy-parent-tree.js',
-    'resources/dist/components/taxonomy-assignment-picker.js',
+    'resources/dist/components/taxonomy-term-field.js',
 ]
 const before = files.map((file) => readFileSync(file))
 execFileSync(process.execPath, ['bin/build.js'], { stdio: 'inherit' })

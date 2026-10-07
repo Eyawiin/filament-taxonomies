@@ -12,6 +12,7 @@ beforeEach(function (): void {
 });
 
 it('renders row actions without a term lookup per action', function (): void {
+    // One read for the tree's structure and one for the rendered terms, regardless of size.
     $taxonomy = Taxonomy::create(['name' => 'Broad', 'slug' => 'broad']);
     foreach (range(1, 25) as $index) {
         $taxonomy->terms()->create(['name' => 'Term ' . $index, 'slug' => 'term-' . $index]);
@@ -22,7 +23,7 @@ it('renders row actions without a term lookup per action', function (): void {
     try {
         Livewire::test(ManageTaxonomyTerms::class, ['record' => $taxonomy->id])->assertSuccessful();
         $reads = array_filter(DB::getQueryLog(), fn (array $query): bool => str_starts_with($query['query'], 'select ') && str_contains($query['query'], 'from "taxonomy_terms"'));
-        expect($reads)->toHaveCount(1);
+        expect($reads)->toHaveCount(2);
     } finally {
         DB::disableQueryLog();
     }

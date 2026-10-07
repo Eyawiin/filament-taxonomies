@@ -124,9 +124,10 @@ export function createTreeDrag({ root, isBusy, onDrop }) {
 
         for (const row of rows) {
             const term = row.closest('[data-taxonomy-term]')
-            row.dataset.hasChildren = term.querySelector(':scope > div[x-show]')
-                ? 'true'
-                : 'false'
+            // Collapsed branches of on-demand trees render no children, so trust the server's flag.
+            row.dataset.hasChildren =
+                term.dataset.hasChildren ??
+                (term.querySelector(':scope > div[x-show]') ? 'true' : 'false')
 
             if (registrations.has(row)) continue
 

@@ -70,7 +70,7 @@ class TaxonomyResource extends Resource
     }
 
     /** Settings of the plugin on the current panel, or its defaults when the resource is registered directly. */
-    protected static function plugin(): FilamentTaxonomiesPlugin
+    public static function plugin(): FilamentTaxonomiesPlugin
     {
         $panel = Filament::getCurrentOrDefaultPanel();
         $plugin = $panel?->hasPlugin('filament-taxonomies') ? $panel->getPlugin('filament-taxonomies') : null;
