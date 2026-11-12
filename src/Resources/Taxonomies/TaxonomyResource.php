@@ -49,7 +49,9 @@ class TaxonomyResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return static::plugin()->getNavigationLabel() ?? parent::getNavigationLabel();
+        // Filament's own default, inlined: since 5.11 the parent may also return Htmlable, which
+        // this string contract (needed by Filament versions before 5.11) cannot pass through.
+        return static::plugin()->getNavigationLabel() ?? static::$navigationLabel ?? static::getTitleCasePluralModelLabel();
     }
 
     public static function getNavigationIcon(): string | BackedEnum | Htmlable | null
