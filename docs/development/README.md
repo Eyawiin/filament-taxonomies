@@ -14,3 +14,4 @@ from package archives.
 | [f6-performance.json](f6-performance.json) | Raw measurement samples behind F6_ACCEPTANCE.md |
 | [P1_ASSIGNMENTS.md](P1_ASSIGNMENTS.md) | Design of explicit term assignments (`HasTaxonomies`) |
 | [P2_FIELDS.md](P2_FIELDS.md) | Design of the `TaxonomySelect` form field |
+| [LAZY_TREES.md](LAZY_TREES.md) | On-demand loading and the redesigned term fields, replacing the dialog picker |

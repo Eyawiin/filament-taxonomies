@@ -10,7 +10,7 @@
         aria-controls="{{ $id }}-tree"
         x-bind:disabled="disabled"
         x-on:keydown.arrow-down.prevent="focusFirstRow()"
-        x-on:keydown.enter.prevent
+        x-on:keydown.enter.prevent="chooseFirstMatch()"
     />
     <x-filament::loading-indicator class="taxonomy-term-search-spinner" x-show="searching" x-cloak />
 </div>

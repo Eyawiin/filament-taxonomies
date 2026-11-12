@@ -41,7 +41,7 @@ class ManageTaxonomyTerms extends Page
 
     public const SEARCH_LIMIT = 100;
 
-    /** Bounds the expanded branches remembered per taxonomy in the session. */
+    /** Bounds the expanded branches remembered per taxonomy. */
     public const MAX_EXPANDED = 500;
 
     protected static string $resource = TaxonomyResource::class;
@@ -50,6 +50,14 @@ class ManageTaxonomyTerms extends Page
 
     /** @var array<int|string, mixed> Children shown per branch, keyed by term ID or 'root'. Browser state; read through termLimits(). */
     public array $termLimits = [];
+
+    /**
+     * Branches expanded on demand-loaded trees. The session keeps them across visits; this
+     * property keeps them between requests, also in panels without session middleware.
+     *
+     * @var array<int|string, mixed> Browser state; read through expandedTermIds().
+     */
+    public array $expandedTermIds = [];
 
     private bool $isMutatingTerms = false;
 
@@ -60,6 +68,9 @@ class ManageTaxonomyTerms extends Page
     public function mount(int | string $record): void
     {
         $this->record = $this->resolveRecord($record);
+        $stored = session()->get($this->expansionKey(), []);
+        $this->expandedTermIds = is_array($stored) ? $stored : [];
+        $this->expandedTermIds = $this->expandedTermIds();
     }
 
     public function hydrate(): void
@@ -234,22 +245,22 @@ class ManageTaxonomyTerms extends Page
     /** @return list<int> */
     private function expandedTermIds(): array
     {
-        $stored = session()->get($this->expansionKey(), []);
         $ids = [];
-        foreach (is_array($stored) ? $stored : [] as $id) {
+        foreach ($this->expandedTermIds as $id) {
             $id = $this->normalizeTermId($id);
             if ($id !== null && ! in_array($id, $ids, true)) {
                 $ids[] = $id;
             }
         }
 
-        return $ids;
+        return array_slice($ids, -self::MAX_EXPANDED);
     }
 
     /** @param list<int> $ids */
     private function storeExpandedTermIds(array $ids): void
     {
-        session()->put($this->expansionKey(), array_slice(array_values(array_unique($ids)), -self::MAX_EXPANDED));
+        $this->expandedTermIds = array_slice(array_values(array_unique($ids)), -self::MAX_EXPANDED);
+        session()->put($this->expansionKey(), $this->expandedTermIds);
     }
 
     private function expansionKey(): string

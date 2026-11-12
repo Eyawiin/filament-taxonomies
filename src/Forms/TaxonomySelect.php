@@ -392,6 +392,6 @@ class TaxonomySelect extends TaxonomyTreeField
 
     protected function failSelection(): never
     {
-        throw ValidationException::withMessages([$this->getStatePath() => __('filament-taxonomies::assignment-tree.invalid')]);
+        throw ValidationException::withMessages([($this->getStatePath() ?? $this->getName()) => __('filament-taxonomies::assignment-tree.invalid')]);
     }
 }

@@ -22,7 +22,11 @@ try {
             'tree' => fn () => $service->getTree($taxonomy),
             'descendants' => fn () => $service->getDescendantIds($term),
             'diagnostics' => fn () => $service->diagnoseTree($taxonomy),
-            'parent_configuration' => fn () => TaxonomyParentSelect::make($taxonomy, $term)->container(Schema::make())->getTreeConfiguration(),
+            // Every term, as fields at or below the lazy loading threshold send them.
+            'parent_configuration' => fn () => TaxonomyParentSelect::make($taxonomy, $term)->container(Schema::make())->lazyLoading(false)->getTreeConfiguration(),
+            // What a larger taxonomy sends instead: one page of roots, then branches on demand.
+            'parent_roots' => fn () => TaxonomyParentSelect::make($taxonomy, $term)->container(Schema::make())->getTreeChildren(),
+            'parent_search' => fn () => TaxonomyParentSelect::make($taxonomy, $term)->container(Schema::make())->searchTree($fixture['last_name']),
             'sidebar' => fn () => array_map(fn ($item) => [$item->getLabel(), $item->getBadge(), $item->getUrl()], TaxonomyResource::getNavigationItems()),
         ] as $operation => $run) {
             $samples = [];

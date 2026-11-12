@@ -39,6 +39,7 @@ try {
             }
             $fixtures[$slug] = [
                 'taxonomy_id' => $taxonomy->id, 'size' => $size, 'depth' => max($depths),
+                'roots' => count(array_filter($depths, static fn (int $depth): bool => $depth === 1)),
                 'first_id' => $ids[0], 'last_id' => $ids[$size - 1], 'last_depth' => $depths[$size - 1],
                 'last_name' => sprintf('Term %04d', $size - 1),
             ];

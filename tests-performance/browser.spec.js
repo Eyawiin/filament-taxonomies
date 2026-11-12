@@ -15,6 +15,7 @@ test('measure native management, parent selection and sidebar on isolated fixtur
     page.on('pageerror', (error) => errors.push(error.message))
     for (const [slug, fixture] of Object.entries(fixtures)) {
         const measurements = {}
+        const lazy = fixture.size > 100
         for (const [surface, url] of [
             [
                 'manage',
@@ -28,9 +29,10 @@ test('measure native management, parent selection and sidebar on isolated fixtur
                 const response = await page.goto(url)
                 expect(response.ok()).toBe(true)
                 if (surface === 'manage') {
+                    // Above the default threshold of 100 terms only the roots render.
                     await expect(
                         page.locator('[data-taxonomy-term]'),
-                    ).toHaveCount(fixture.size)
+                    ).toHaveCount(lazy ? fixture.roots : fixture.size)
                     await expect(
                         page.getByRole('button', {
                             name: 'Collapse All',
@@ -39,8 +41,8 @@ test('measure native management, parent selection and sidebar on isolated fixtur
                     ).toBeVisible()
                 } else {
                     await expect(
-                        page.locator('.taxonomy-parent-trigger'),
-                    ).toHaveText('No parent (root term)')
+                        page.locator('.taxonomy-term-trigger'),
+                    ).toContainText('No parent (root term)')
                 }
                 samples.push({
                     ready_ms: performance.now() - started,
@@ -61,9 +63,10 @@ test('measure native management, parent selection and sidebar on isolated fixtur
             }
             measurements[surface] = samples
             if (surface === 'parent') {
-                const field = page.locator('.taxonomy-parent-tree')
-                await field.locator('.taxonomy-parent-trigger').click()
-                const search = field.locator('input[type=search]')
+                const field = page.locator('.taxonomy-term-field')
+                const rows = field.locator('[role=treeitem]')
+                await field.locator('.taxonomy-term-trigger').click()
+                const search = field.getByRole('searchbox')
                 measurements.search = []
                 for (const query of [
                     fixture.last_name,
@@ -73,18 +76,17 @@ test('measure native management, parent selection and sidebar on isolated fixtur
                     const started = performance.now()
                     await search.fill(query)
                     if (query === fixture.last_name) {
-                        await expect(
-                            field.locator('[role=treeitem]:visible'),
-                        ).toHaveCount(fixture.last_depth + 1)
+                        await expect(rows).toHaveCount(1)
                     } else if (query) {
-                        await expect(field.getByRole('status')).toBeVisible()
-                        await expect(
-                            field.locator('[role=treeitem]:visible'),
-                        ).toHaveCount(1)
+                        await expect(field.getByRole('status')).toHaveText(
+                            'No matching terms',
+                        )
+                        await expect(rows).toHaveCount(0)
                     } else {
-                        await expect(
-                            field.locator('[role=treeitem]:visible'),
-                        ).toHaveCount(fixture.size + 1)
+                        // Loaded trees show every term; lazy ones the roots. Both add the empty choice.
+                        await expect(rows).toHaveCount(
+                            (lazy ? fixture.roots : fixture.size) + 1,
+                        )
                     }
                     measurements.search.push({
                         query,
@@ -94,12 +96,12 @@ test('measure native management, parent selection and sidebar on isolated fixtur
                 await search.press('ArrowDown')
                 const started = performance.now()
                 await page.keyboard.press('End')
-                await expect(
-                    field.locator('[role=treeitem]:visible').last(),
-                ).toBeFocused()
+                await expect(rows.last()).toBeFocused()
                 measurements.end_navigation_ms = performance.now() - started
                 await page.keyboard.press('Home')
-                await expect(field.locator('[data-node-id=root]')).toBeFocused()
+                await expect(
+                    field.locator('[data-row-key="empty"]'),
+                ).toBeFocused()
                 await page.keyboard.press('Escape')
             }
         }

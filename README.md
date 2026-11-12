@@ -85,7 +85,7 @@ public function panel(Panel $panel): Panel
 }
 ```
 
-Open **Taxonomies** in the panel navigation to create a taxonomy, then choose **Manage Terms** to organize its terms in a tree. Drag a term by its handle and drop it near the top of another row to place it before, in the middle to make it a child, or near the bottom to place it after. You can also use the row's **Move up** and **Move down** buttons to reorder siblings without dragging. Use **Edit** to change a term's parent.
+Open **Taxonomies** in the panel navigation to create a taxonomy, then choose **Manage Terms** to organize its terms in a tree. Drag a term by its handle and drop it near the top of another row to place it before, in the middle to make it a child, or near the bottom to place it after. You can also use the row's **Move up** and **Move down** buttons to reorder siblings without dragging. Use **Edit** to change a term's parent. The search box above the tree shows matching terms below their parents; reordering pauses until you clear it.
 
 ### Configuring the plugin
 
@@ -103,8 +103,16 @@ FilamentTaxonomiesPlugin::make()
     ->navigationGroup('Content')              // Group of the list entry; default: none.
     ->navigationSort(3)
     ->taxonomyNavigationGroup('Vocabularies') // Group of the per-taxonomy entries.
+    ->lazyLoadingThreshold(250)               // Default: 100 visible terms.
     ->resource(TaxonomyResource::class);      // A subclass of the package resource.
 ```
+
+Up to the lazy loading threshold, **Manage Terms** renders a taxonomy's whole
+tree and expands branches in the browser. Larger taxonomies start with their root
+terms and load a branch when you expand it, 50 terms at a time with **Show more**.
+Each user's expanded branches are remembered in the session. The threshold also
+decides when the parent selector in the term form loads on demand. Use `0` to
+always load on demand.
 
 By default the navigation shows the taxonomy list as its own entry and every
 visible taxonomy, with its term count, in a **Taxonomies** group. Listing the
@@ -212,15 +220,15 @@ the owner’s own ID and attributes.
 the taxonomy (model, ID or slug) and one or more term models or IDs:
 
 ```php
-// Owners assigned to Pokémon or to any term below it, such as Base Set.
-Card::whereHasTaxonomyTerms('categories', $pokemon, includeDescendants: true)->get();
+// Decks assigned to Disney or to any theme below it, such as Lilo & Stitch.
+Deck::whereHasTaxonomyTerms('themes', $disney, includeDescendants: true)->get();
 
-// Owners assigned to at least one of several terms.
-Card::whereHasTaxonomyTerms('categories', [$coinsId, $stampsId])->get();
+// Decks assigned to at least one of several terms.
+Deck::whereHasTaxonomyTerms('themes', [$wolvesId, $owlsId])->get();
 
 // A match in every subtree, combined with a filter on another taxonomy.
-Card::whereHasAllTaxonomyTerms('categories', [$pokemon, $firstEdition], includeDescendants: true)
-    ->whereHasTaxonomyTerms('conditions', [$mintId])
+Deck::whereHasAllTaxonomyTerms('themes', [$disney, $nature], includeDescendants: true)
+    ->whereHasTaxonomyTerms('brands', [$bicycleId], includeDescendants: true)
     ->get();
 ```
 
@@ -233,9 +241,9 @@ term list matches no owners in `whereHasTaxonomyTerms()` and adds no condition
 in `whereHasAllTaxonomyTerms()`, so apply the scopes only when a filter is set:
 
 ```php
-Card::query()
-    ->when($request->filled('category'), fn ($query) => $query->whereHasTaxonomyTerms(
-        'categories', (array) $request->input('category'), includeDescendants: true,
+Deck::query()
+    ->when($request->filled('theme'), fn ($query) => $query->whereHasTaxonomyTerms(
+        'themes', (array) $request->input('theme'), includeDescendants: true,
     ))
     ->paginate();
 ```
@@ -364,9 +372,8 @@ TaxonomySelect::make('topic_ids')
 ```
 
 Selecting a child then assigns every visible, permitted ancestor. It does not
-select siblings or descendants. Removing a selected parent
-also removes its selected descendants after an exact removal preview; removing a
-child retains its parents.
+select siblings or descendants. Unchecking a selected parent also removes its
+selected descendants; unchecking a child keeps its parents.
 An unavailable or denied ancestor makes its descendants unselectable in this
 mode. Existing child assignments expand in editable form state when the mode is
 enabled; opening the form does not write assignments, and normal saving persists
@@ -374,11 +381,41 @@ the expanded selection. Programmatic form submissions must include the complete
 ancestor chain; validation checks it again under the taxonomy lock. Read-only and
 disabled fields keep their existing state. Single fields ignore this setting.
 
-Multiple tree options show a checkbox for the term's actual assignment. A parent
-also displays a selected-descendant count when its children are not shown, so
-its own assignment is distinct from selected terms below it. Counts include all assigned
-descendants, including intermediate ancestors. The UI does not claim to remember
-which persisted assignments were selected automatically.
+A checkbox shows the term's own assignment. A collapsed parent also shows how
+many terms below it are selected, so its own assignment stays distinct from its
+descendants. Counts include intermediate ancestors. The UI does not claim to
+remember which assignments were added automatically.
+
+### Layout and loading
+
+The field adapts to the taxonomy size. Up to the lazy loading threshold of 100
+visible terms, the browser receives the whole tree: multiple fields show an
+inline checkbox tree, single fields a compact dropdown. Larger taxonomies use a
+searchable dropdown that loads branches and search results from the server.
+
+```php
+TaxonomySelect::make('theme_ids')->taxonomy('themes')->multiple()
+    ->tree();     // Always the inline tree, also for large taxonomies.
+
+TaxonomySelect::make('theme_ids')->taxonomy('themes')->multiple()
+    ->dropdown(); // Always the dropdown, also for small taxonomies.
+
+TaxonomySelect::make('theme_ids')->taxonomy('themes')->multiple()
+    ->lazyLoadingThreshold(250); // Or ->lazyLoading() / ->lazyLoading(false) to force it.
+```
+
+`tree()`, `dropdown()` and `lazyLoading()` accept a boolean closure. To change the
+default for every field, configure it once, for example in a service provider:
+
+```php
+TaxonomySelect::configureUsing(fn (TaxonomySelect $field) => $field->lazyLoadingThreshold(250));
+```
+
+When the field loads on demand, the browser asks the field for one branch (100
+terms, then **Show more terms**), for search results (the first 50 matches) and
+for terms it has not seen, such as after a form fill. These Livewire calls return
+only visible terms of the field's taxonomy, with the same disabled reasons as
+the full tree.
 
 **Enable Filament database transactions on create/edit pages** (or on the panel)
 to make the owner and all relationship fields one atomic save:
@@ -439,44 +476,32 @@ full sync, including clearing, to protect data the caller cannot see. Handle tho
 through an authorized backend workflow. Current browser term IDs are positive
 integers up to `2^53 - 1`; larger IDs remain unavailable rather than being rounded.
 
-Single fields and the parent selector keep the compact searchable tree. Arrow
-keys move focus; Enter/Space selects; Home then Enter/Space clears; Escape closes
-and returns focus to the trigger.
+### Using the field
 
-Multiple fields use a compact selection count and a separate **Selected branches**
-review. Each term appears once in the current review; unassigned ancestors are
-marked **Context only** and have no removal control. The review shows up to three
-levels at a time. Use **View N below** to inspect a deeper branch. Its breadcrumb
-path stays visible with full labels and horizontal scrolling; click an ancestor
-to revisit it, **Back** to go up, or **Selected branches** to return to the overview.
-Large reviews and search results initially show 50 rows, with **Show more**.
+- **Inline tree:** check terms directly. Chevrons, **Expand all** and **Collapse
+  all** open branches. Above 10 terms a search box lists matches with their path.
+  The footer counts the selection and offers **Clear selection**.
+- **Dropdown:** the button shows the chosen term with its path, or the number of
+  selected terms. Selected terms of a multiple field appear as chips with their
+  path and a remove button; with ancestor selection, only the deepest term of
+  each path gets a chip. More than 20 chips collapse behind **Show all**. Single
+  fields offer **None** (or **No parent** in the parent selector) to clear.
+- **Keyboard:** Tab moves into the tree. Up and Down move, Right expands or enters
+  a branch, Left collapses or goes to the parent, Home and End jump. Space and
+  Enter select, or toggle in multiple fields. In the search box, Down moves into
+  the results and Enter picks the first match. Escape closes the dropdown and
+  returns focus to its button.
 
-**Browse** opens a picker with Filament search, checkbox and button components,
-showing one level of terms at a time. Use **Browse** beside a term to open its
-children, **Back** to go up, or search the whole visible taxonomy. The picker keeps
-a responsive fixed height while its options scroll independently; Back remains
-in place and the current breadcrumb path stays visible while browsing. Search
-results include ancestor paths to distinguish identically named terms. Checking
-a term reflects its actual assignment; a parent's descendant count is separate from its checkbox state. **Apply** updates
-the pending form field; **Cancel** or Escape discards the dialog's changes.
-The normal form Save persists assignments. Keyboard users can Tab through the
-controls and press Space to check a term.
+Changes only update the form state; the normal **Save** persists them. There is
+no extra Apply or confirmation step. Restricted and unavailable assignments
+cannot be removed here: they stay checked with their reason, keep their
+ancestors selected, and survive **Clear selection**.
 
-A leaf's X removes that term. In independent mode a selected parent's X also
-removes only that parent. In ancestor mode the parent's **Remove branch (N)**
-action opens a separate confirmation dialog listing the exact selected terms it
-will remove. Confirm or cancel that preview; unrelated branches and unselected
-descendants are preserved. **Clear selection** also previews its affected terms.
-Removal inside the picker changes its draft; removal from the branch review
-changes the pending form field. **Undo** restores the last pending removal until another selection or configuration change supersedes it.
-Restricted and unavailable assignments cannot be removed through these controls.
-Changes to permissions, hierarchy or configuration invalidate stale previews and
-Undo; updates to the field while browsing discard the obsolete dialog draft.
-
-The picker and confirmation use HTML dialogs styled to match Filament; their
-controls use native Filament components. The selector supports RTL, dark mode,
-disabled/read-only state, live configuration, repeaters, and use inside a Filament
-action modal.
+The field supports RTL, dark mode, disabled and read-only state, live
+configuration, repeaters and Filament action modals. A plain action fills its
+modal with defaults and does not load existing assignments; pass
+`->fillForm(fn (Model $record): array => $record->attributesToArray())` to show
+them, as resource edit actions do.
 
 ## Authorization and visibility
 
@@ -514,20 +539,23 @@ directly must authorize their own integration before invoking mutations.
 
 ## Tree size and imported data
 
-The current management page and parent field render the complete visible tree.
-For the measured desktop setup, plan around **100 terms per taxonomy, up to four
-levels, and approximately 100 sidebar taxonomies**. These are conservative
-operating guidelines, not database limits or enforced caps. Benchmark your own
-theme, labels, policies and hardware before expanding them.
+Manage Terms, the parent selector and assignment fields all switch to on-demand
+loading above the lazy loading threshold (100 visible terms by default). Below it
+they render the whole visible tree, which keeps expanding and searching instant.
+Above it, page size and DOM stay small regardless of the taxonomy size, at the
+cost of a short request when you expand a branch or search.
 
-A 1,000-term tree is a stress fixture: its management page renders roughly
-37,000 DOM elements and more than 11 MB of decoded HTML. Reducing database queries
-does not make that a responsive large-tree editor. Very deep trees also exhaust
-usable indentation space. These management/parent controls are outside the current large-tree responsiveness
-claim. The multiple assignment picker uses a separate bounded rendering design:
-its local stress fixture exercises 534 terms and 25 levels. It still receives the
-complete visible node projection from the server; it does not promise arbitrary
-taxonomy sizes or remote loading.
+Measured with the repository's performance harness on an Apple silicon Mac:
+
+| Fixture | Manage Terms | Parent selector |
+| --- | --- | --- |
+| 100 terms, rendered at once | 0.85 s, 1.5 MB HTML, 4,900 elements | 0.35 s |
+| 1,000 terms, loaded on demand | 0.33 s, 0.4 MB HTML, 1,600 elements | 0.25 s |
+
+Before on-demand loading, the 1,000-term management page needed about 11 s,
+12 MB of HTML and 37,000 elements on the earlier reference machine. Very deep
+trees still exhaust indentation space; use search to reach deep terms. Benchmark
+your own labels, policies and hardware before raising the threshold.
 
 Managed writes validate hierarchy and coordinate locking. Raw imports do not
 automatically receive those checks. To inspect an import without changing it:
@@ -666,10 +694,13 @@ again after changing Blade views or theme CSS, and `composer build` after
 updating Composer dependencies.
 
 `composer demo` prepares persistent workbench storage, builds/migrates the
-workbench and seeds **Demo Topics** and **Demo Levels**, each with 12 terms across
-three levels, plus four Decks. Open `/admin/decks` to create/edit Decks and try
-multiple Topics and a single Level. Re-running adds missing fixture entries and
-preserves existing names and Deck assignments. It does not reset the database.
+workbench and seeds a small collection of playing-card decks: **Themes** (for
+example Pop culture › Disney › Lilo & Stitch) and **Brands** (for example
+Bicycle › Rider Back › Red), each with 12 terms across three levels, plus four
+Decks such as **Bicycle Lilo & Stitch**. Open `/admin/decks` to create/edit Decks
+and try multiple Themes and a single Brand. Re-running adds missing fixture
+entries and preserves existing names and Deck assignments. It does not reset the
+database.
 
 To generate more random Decks after seeding, use Tinker:
 
@@ -678,8 +709,9 @@ Workbench\Database\Factories\DeckFactory::new()->withDemoTerms()->count(10)->cre
 ```
 
 `DeckFactory::new()->create()` makes an unrelated Deck with no assignments;
-`withDemoTerms()` attaches terms from the two existing demo taxonomies. The
-`DemoTaxonomyFactory` has `topics()` and `levels()` states that create nested terms
+`withDemoTerms()` attaches Lilo & Stitch, Wolves and a red Bicycle Rider Back, or
+the theme and brand slugs you pass. The `DemoTaxonomyFactory` has `themes()` and
+`brands()` states that create nested terms
 through the managed tree service. These models, factories, seeders and the Deck
 resource belong to the local workbench and are excluded from package archives.
 
@@ -700,15 +732,11 @@ the site. Other setups keep using `composer serve`.
 
 ### Trying ancestor selection in the workbench
 
-The workbench Topics field uses `->multiple()->selectAncestors()` in `DeckResource`.
-Open `/admin/decks/create` or an existing Deck.
-Choose Vocabulary under Languages / English: all three become checked and appear
-in the selected-branch review after **Apply**. Use **Remove branch (2)** beside
-English to preview/remove English and Vocabulary while keeping Languages; try
-**Undo**. To configure independent selection, remove `->selectAncestors()` or
-set it to `false` in the resource schema. This is a field configuration option;
-backend users do not see a mode toggle.
-
+The workbench Themes field uses `->multiple()->selectAncestors()` in `DeckResource`.
+Open `/admin/decks/create` or an existing Deck. Check The Lion King under
+Pop culture / Disney: all three become checked. Uncheck Disney to remove Disney
+and The Lion King while keeping Pop culture. To configure independent selection,
+remove `->selectAncestors()` or set it to `false` in the resource schema.
 
 ### Deep and broad selection playground
 
@@ -716,21 +744,23 @@ backend users do not see a mode toggle.
 composer demo:large
 ```
 
-This additive command creates **Demo Large Tree** with **534 terms**, six roots,
-a **25-level** branch, 72 repeated **Overview** labels, and long labels. It adds
-three Decks: **Playground: 25 levels**, **Playground: 90 selections**, and
-**Playground: empty selection**. Open `/admin/decks`, edit one of these Decks, and
-use its **Large tree playground** field. Existing names and assignments are
-preserved when you rerun the command. This field appears only after the large
-fixture exists.
+This additive command creates a **Large catalog** with **534 terms**: six themes
+(Disney, Marvel, Star Wars, Nature, Art and Vintage) with twelve series each,
+such as Lilo & Stitch or The Lion King, and six editions per series. It also
+contains a **25-level** branch below Disney, 72 repeated **Standard edition**
+labels and long labels. It adds three Decks: **Playground: 25 levels**,
+**Playground: 90 selections**, and **Playground: empty selection**. Open
+`/admin/decks`, edit one of these Decks, and use its **Large catalog** field.
+Existing names and assignments are preserved when you rerun the command. This
+field appears only after the large fixture exists.
 
-Try **View N below** to browse all 25 levels without growing
-indentation; search **Overview** and compare paths; load more of the 90 selected
-terms; remove a branch, inspect its exact scope, and undo it. Test Cancel and
-Apply separately, then save/reopen the Deck to verify persistence.
-Use the empty Deck to build a new selection. These fixtures belong to the
-workbench and are excluded from package archives.
-
+With 534 terms the field and **Manage Terms** load on demand. Expand branches,
+search **Standard edition** to compare identical names by their paths, or **Deep level 25**
+to reach the deepest term, and remove chips. Save and reopen the Deck to verify
+persistence. To try on-demand loading with the small demo taxonomies, set
+`->lazyLoadingThreshold(5)` on the plugin in the workbench `AdminPanelProvider`,
+or call `->lazyLoading()` on a field in `DeckResource`. These fixtures belong to
+the workbench and are excluded from package archives.
 
 ## Upgrading from earlier 5.x development versions
 
@@ -739,8 +769,7 @@ facade/alias and empty testing mixin have been removed. They implemented no
 operations. Use `filament-taxonomies:install` for publishing and
 `TaxonomyTreeService` for the documented hierarchy operations.
 The internal parent factory now returns a dedicated Field, so undocumented
-Select-specific chaining is not supported. Published parent views must be
-updated for the nested field template and the new `parent-tree-branch` partial.
+Select-specific chaining is not supported.
 
 The plugin no longer adds a collapsible **Taxonomies** navigation group to your
 panel; navigation groups follow the panel's own settings. Configure the
@@ -751,6 +780,16 @@ navigation with the [plugin options](#configuring-the-plugin) instead.
 files, so republish customized views: the management page passes a translated
 error message to its tree script. The unused, empty
 `resources/dist/filament-taxonomies.js` bundle has been removed.
+
+Assignment fields no longer use the dialog picker. Its views (`assignment-picker`,
+`assignment-path`, `assignment-removal`) and the parent views (`parent-tree-select`,
+`parent-tree-branch`) are replaced by `forms/term-tree-field` with the
+`forms/term-tree/*` partials, and the `taxonomy-assignment-picker` and
+`taxonomy-parent-tree` scripts by `taxonomy-term-field`. Republish customized
+views and run `php artisan filament:assets`. The internal `TaxonomyTreeOptions`
+class is gone; `TaxonomyParentField` is configured through `parentOf()` instead of
+`nodes()`, and `ManageTaxonomyTerms::getTermTree()` returns the rendered part of
+the tree with paging information.
 
 The resource now takes its model from the `models` config; a resource subclass
 can still set `$model`. Code that adds global scopes to the package models only

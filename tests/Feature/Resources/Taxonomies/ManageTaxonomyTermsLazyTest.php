@@ -58,6 +58,21 @@ it('renders roots and expanded branches above the threshold and remembers them i
         ->and(session('filament-taxonomies.expanded.' . $tree['taxonomy']->id))->toBe([]);
 });
 
+it('keeps expanded branches between requests without a session and ignores tampered values', function (): void {
+    $this->plugin->lazyLoadingThreshold(0);
+    $tree = TaxonomyTreeFixture::create();
+    $component = Livewire::test(ManageTaxonomyTerms::class, ['record' => $tree['taxonomy']->id])
+        ->call('toggleTerm', $tree['disney']->id);
+    // A panel without session middleware forgets the session between requests.
+    session()->flush();
+    $component->call('toggleTerm', $tree['lionKing']->id);
+
+    expect(renderedTermIds($component))->toContain($tree['simba']->id);
+
+    $component->set('expandedTermIds', ['junk', -4, ['x'], (string) $tree['disney']->id]);
+    expect(renderedTermIds($component))->toBe([$tree['disney']->id, $tree['liloAndStitch']->id, $tree['lionKing']->id]);
+});
+
 it('shows large branches a page at a time and ignores tampered page sizes', function (): void {
     $this->plugin->lazyLoadingThreshold(0);
     $taxonomy = Taxonomy::create(['name' => 'Broad', 'slug' => 'broad']);

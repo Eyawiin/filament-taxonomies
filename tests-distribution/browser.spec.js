@@ -26,12 +26,12 @@ test('clean consumer uses published assets for term CRUD, parent selection, repe
     await page.getByRole('button', { name: 'Create Term', exact: true }).click()
     const modal = page
         .getByRole('dialog')
-        .filter({ has: page.locator('.taxonomy-parent-tree') })
+        .filter({ has: page.locator('.taxonomy-term-field') })
     await modal.getByRole('textbox', { name: /^Name/ }).fill('Created child')
     await modal.getByRole('textbox', { name: /^Slug/ }).fill('created-child')
-    const field = modal.locator('.taxonomy-parent-tree')
-    await field.locator('.taxonomy-parent-trigger').click()
-    await field.locator('[data-node-id="' + alpha.id + '"]').click()
+    const field = modal.locator('.taxonomy-term-field')
+    await field.locator('.taxonomy-term-trigger').click()
+    await field.locator('[data-row-key="n' + alpha.id + '"]').click()
     await modal.getByRole('button', { name: 'Submit', exact: true }).click()
     await expect(modal).toBeHidden()
     await expect
@@ -111,53 +111,34 @@ test('copied package fields create, reopen and clear assignments through a consu
     await page
         .getByRole('textbox', { name: /^Name/ })
         .fill('Installed package deck')
-    const topics = page.locator('.taxonomy-parent-tree').nth(0)
-    const level = page.locator('.taxonomy-parent-tree').nth(1)
-    const open = async (field) => {
-        await field.locator('.taxonomy-parent-trigger').click()
-        await expect(field.locator('input[type=search]')).toBeFocused()
-    }
-    const picker = topics.locator('.taxonomy-assignment-dialog')
-    const chooseTopic = async () => {
-        await open(topics)
-        await expect(picker).toBeVisible()
-        await picker.getByRole('searchbox').fill('Topics leaf')
-        const leaf = picker.getByRole('checkbox', {
-            name: 'Topics leaf',
-            exact: true,
-        })
-        await expect(leaf).not.toBeChecked()
-        await leaf.check()
-    }
-    await chooseTopic()
-    await picker.getByRole('button', { name: 'Cancel', exact: true }).click()
-    await expect(picker).toBeHidden()
-    await expect(topics.locator('.taxonomy-selection-review')).toBeHidden()
-    await chooseTopic()
-    await picker.getByRole('button', { name: 'Apply', exact: true }).click()
-    await expect(picker).toBeHidden()
-    await expect(topics.locator('.taxonomy-selection-review')).toContainText(
-        'Topics leaf',
-    )
-    await open(level)
+    const topics = page.locator('.taxonomy-term-field').nth(0)
+    const level = page.locator('.taxonomy-term-field').nth(1)
+    const leaf = topics.getByRole('treeitem', {
+        name: 'Topics leaf',
+        exact: true,
+    })
+    await expect(leaf).toHaveAttribute('aria-checked', 'false')
+    await leaf.click()
+    await expect(leaf).toHaveAttribute('aria-checked', 'true')
+    await level.locator('.taxonomy-term-trigger').click()
     await level
         .getByRole('treeitem', { name: 'Levels leaf', exact: true })
         .click()
+    await expect(level.locator('.taxonomy-term-trigger')).toContainText(
+        'Levels leaf',
+    )
     await page.getByRole('button', { name: 'Create', exact: true }).click()
     await expect
         .poll(async () => (await state())[0]?.topics)
         .toEqual(['Topics leaf'])
     const deck = (await state())[0]
     await page.goto('/admin/decks/' + deck.id + '/edit')
-    await expect(topics.locator('.taxonomy-selection-review')).toContainText(
-        'Topics leaf',
-    )
-    await expect(level.locator('.taxonomy-parent-trigger')).toContainText(
+    await expect(leaf).toHaveAttribute('aria-checked', 'true')
+    await expect(level.locator('.taxonomy-term-trigger')).toContainText(
         'Levels leaf',
     )
-    await topics
-        .getByRole('button', { name: 'Remove Topics leaf', exact: true })
-        .click()
+    await leaf.click()
+    await expect(leaf).toHaveAttribute('aria-checked', 'false')
     await page
         .getByRole('button', { name: 'Save changes', exact: true })
         .click()

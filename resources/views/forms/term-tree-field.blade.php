@@ -14,9 +14,12 @@
         data-layout="{{ $layout }}"
         x-load
         x-load-src="{{ \Filament\Support\Facades\FilamentAsset::getAlpineComponentSrc('taxonomy-term-field', package: 'eyawiin/filament-taxonomies') }}"
+        {{-- Keep this attribute identical across renders: when Livewire changes x-data, Alpine
+            restarts the component and loses its search, branches and focus. Updates arrive
+            through data-tree-config instead. --}}
         x-data="taxonomyTermField({
             state: $wire.{{ $applyStateBindingModifiers("\$entangle('{$statePath}')") }},
-            ...@js($configuration),
+            ...JSON.parse($el.querySelector('[data-tree-config]').dataset.treeConfig),
             call: (method, args) => Livewire.fireAction(
                 $wire.__instance,
                 'callSchemaComponentMethod',

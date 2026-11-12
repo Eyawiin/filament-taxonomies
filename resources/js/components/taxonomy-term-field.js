@@ -768,15 +768,27 @@ export default function taxonomyTermField(config) {
         focusRow(key) {
             if (key === null || key === undefined) return
             this.activeKey = key
-            this.$nextTick(() => {
-                if (destroyed) return
-                this.$root
-                    .querySelector('[data-row-key="' + key + '"]')
-                    ?.focus()
-            })
+            const find = () =>
+                this.$root.querySelector('[data-row-key="' + key + '"]')
+            // Focus at once when the row exists: $nextTick waits for a timer, and a quick
+            // Enter would otherwise still reach the search box.
+            const row = find()
+            if (row) row.focus()
+            else
+                this.$nextTick(() => {
+                    if (!destroyed) find()?.focus()
+                })
         },
         focusFirstRow() {
             this.focusRow(this.view.rows[0]?.key)
+        },
+        /** Enter in the search box chooses the first match, so typing a name and Enter is enough. */
+        chooseFirstMatch() {
+            if (!this.search.trim()) return
+            const row = this.view.rows.find(
+                (candidate) => candidate.type === 'node',
+            )
+            if (row) this.toggle(row.id)
         },
         activate(row) {
             if (row.type === 'node') this.toggle(row.id)

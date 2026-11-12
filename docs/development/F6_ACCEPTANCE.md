@@ -1,5 +1,9 @@
 # F6 foundation acceptance
 
+> Since 2026-11-12, taxonomies above 100 terms load their management tree and
+> parent selector on demand, which lifts the full-render limits described here;
+> see [LAZY_TREES.md](LAZY_TREES.md).
+
 Status updated 2026-10-04: foundation fixes are committed and pushed through
 `85088b4` on `5.x`; all 42 remote checks passed. Local evidence below records
 the measured F6 environment, rather than a fresh benchmark of later commits.

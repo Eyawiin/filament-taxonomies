@@ -1,5 +1,9 @@
 # P2 — Reusable taxonomy assignment fields
 
+> The picker and tree UIs described in this record were replaced on 2026-11-12;
+> see [LAZY_TREES.md](LAZY_TREES.md). The field's backend contracts below still
+> apply.
+
 ## Implementation plan and review decisions
 
 1. Reuse the strengthened parent selector's PHP projection, Blade view, Alpine
