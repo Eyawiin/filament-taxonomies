@@ -596,14 +596,13 @@ future conversion to lossless string IDs throughout state, events and actions.
 
 ## Compatibility
 
-Filament 5 requires PHP 8.2+, Laravel 11.28+ and Tailwind CSS 4.1+.
-This branch retains Laravel 11 as legacy compatibility. Its tested dependency
-set reported upstream security advisories in the [2026-10-02 review](docs/development/F6_REVIEW.md).
-Use Laravel 12/13 for new projects. [Filament installation requirements](https://filamentphp.com/docs/5.x/introduction/installation)
+The package requires Laravel 12 or 13, Filament 5, PHP 8.2+ and Tailwind CSS 4.1+.
+Laravel 11 is no longer supported: it stopped receiving security fixes on
+2026-03-12, and Composer now refuses to install it because of unfixed advisories.
+[Filament installation requirements](https://filamentphp.com/docs/5.x/introduction/installation)
 
 | Laravel | PHP test lanes | Testbench |
 | --- | --- | --- |
-| 11.28+ | 8.2, 8.3, 8.4 | 9 |
 | 12 | 8.2, 8.3, 8.4 | 10 |
 | 13 | 8.3, 8.4 | 11 |
 
@@ -763,6 +762,10 @@ or call `->lazyLoading()` on a field in `DeckResource`. These fixtures belong to
 the workbench and are excluded from package archives.
 
 ## Upgrading from earlier 5.x development versions
+
+Laravel 11 support has been dropped; `composer.json` now requires
+`illuminate/contracts` `^12.0|^13.0`. Upgrade the application to Laravel 12 or 13
+first.
 
 The unused `filament-taxonomies` scaffold command, empty `FilamentTaxonomies`
 facade/alias and empty testing mixin have been removed. They implemented no

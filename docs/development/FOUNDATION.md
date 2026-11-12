@@ -24,7 +24,11 @@ This contributor document records F0's decisions and executable reproductions. *
 
 The configured PHP matrix runs lowest/stable dependencies on Ubuntu/Windows; static analysis uses stable dependencies. Configuration is not proof that the latest external run passed. PHP 8.2 is configured for Laravel 11/12; PHP 8.5 is outside the current package CI matrix. Solver acceptance and upstream compatibility do not establish package verification. F5 retains the declared range and adds valid PHP 8.2 lanes; the new remote jobs remain unexecuted until push.
 
-Laravel 11 reached upstream security end of life on 2026-03-12. Retain its existing compatibility lane during the foundation pass; document it as legacy compatibility. Use maintained Laravel 12/13 for new consumer examples. Any removal needs explicit upgrade/versioning treatment. [Laravel's support table](https://laravel.com/framework/docs/13.x/releases#support-policy) supports these upstream ranges and dates.
+Laravel 11 reached upstream security end of life on 2026-03-12. Retain its existing compatibility lane during the foundation pass; document it as legacy compatibility. Use maintained Laravel 12/13 for new consumer examples. Any removal needs explicit upgrade/versioning treatment.
+
+> Update 2026-11-12: Laravel 11 was dropped. Composer's advisory blocking refused every
+> Laravel 11 release in CI. The package now requires `illuminate/contracts` `^12.0|^13.0`,
+> the Laravel 11 lanes are gone, and the README's upgrade notes say so. [Laravel's support table](https://laravel.com/framework/docs/13.x/releases#support-policy) supports these upstream ranges and dates.
 
 Current local evidence: Ubuntu under WSL, PHP 8.3.33, Filament 5.8.4, Laravel 13.33.0, Testbench 11.3.0, Pest 4.7.8, SQLite in memory with foreign keys enabled, Node 24.21.0. Other local PHP/framework/OS combinations were not run for F0.
 
