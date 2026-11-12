@@ -4,6 +4,7 @@ use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Schema;
 use Workbench\App\Models\Deck;
+use Workbench\Database\Seeders\DemoSeeder;
 use Workbench\Database\Seeders\LargeDemoSeeder;
 
 $app = require __DIR__ . '/bootstrap.php';
@@ -34,7 +35,8 @@ if (! Schema::hasTable('decks')) {
 $app->make(LargeDemoSeeder::class)->run();
 // Reset only this disposable browser fixture, never the persistent workbench database.
 foreach (Deck::whereNotNull('demo_key')->get() as $deck) {
-    foreach (['demo-topics' => ['grammar', 'algebra'], 'demo-levels' => ['a1']] as $slug => $terms) {
+    [, , $themes, $brand] = DemoSeeder::DECKS[$deck->demo_key] ?? [null, null, ['lilo-and-stitch', 'wolves'], 'bicycle-rider-back-red'];
+    foreach (['themes' => $themes, 'brands' => [$brand]] as $slug => $terms) {
         $taxonomy = Taxonomy::where('slug', $slug)->firstOrFail();
         $deck->syncTaxonomyTerms($taxonomy, $taxonomy->terms()->whereIn('slug', $terms)->pluck('id')->all());
     }

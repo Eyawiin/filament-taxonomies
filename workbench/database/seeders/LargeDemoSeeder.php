@@ -37,27 +37,24 @@ class LargeDemoSeeder extends Seeder
     /** @return array<string, array{string, string, list<string>}> */
     private static function scenarios(): array
     {
-        $deep = ['root-1'];
-        for ($level = 1; $level < LargeDemoTaxonomyFactory::MAX_DEPTH; $level++) {
-            $deep[] = 'deep-' . sprintf('%02d', $level);
-        }
+        $catalog = LargeDemoTaxonomyFactory::catalog();
+        $deep = [array_key_first($catalog), ...LargeDemoTaxonomyFactory::deepSlugs()];
 
+        // Each theme with its first two series and all their editions: 6 × 15 terms.
         $broad = [];
-        for ($root = 1; $root <= 6; $root++) {
-            $rootSlug = 'root-' . $root;
-            $broad[] = $rootSlug;
-            for ($branch = 1; $branch <= 2; $branch++) {
-                $branchSlug = $rootSlug . '-subject-' . sprintf('%02d', $branch);
-                $broad[] = $branchSlug;
-                for ($leaf = 1; $leaf <= 6; $leaf++) {
-                    $broad[] = $branchSlug . '-term-' . $leaf;
+        foreach ($catalog as $theme => $series) {
+            $broad[] = $theme;
+            foreach (array_slice($series, 0, 2) as $seriesSlug) {
+                $broad[] = $seriesSlug;
+                foreach (array_keys(LargeDemoTaxonomyFactory::EDITIONS) as $edition) {
+                    $broad[] = $seriesSlug . '-' . $edition;
                 }
             }
         }
 
         return [
-            'large-tree-deep' => ['Playground: 25 levels', 'Follow the selected Science branch through 25 levels. Try removing a branch and undoing it.', $deep],
-            'large-tree-broad' => ['Playground: 90 selections', 'Six branches with duplicate term labels and long names. Test selection review, search and removal.', $broad],
+            'large-tree-deep' => ['Playground: 25 levels', 'Follow the selected Disney branch through 25 levels. Try removing a chip.', $deep],
+            'large-tree-broad' => ['Playground: 90 selections', 'Six themes with repeated edition names and long names. Test chips, search and removal.', $broad],
             'large-tree-empty' => ['Playground: empty selection', 'Browse or search all 534 terms and build your own selection.', []],
         ];
     }

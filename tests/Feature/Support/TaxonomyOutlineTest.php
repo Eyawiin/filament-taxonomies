@@ -8,20 +8,20 @@ use Illuminate\Support\Facades\DB;
 
 function outlineFixture(): array
 {
-    $taxonomy = Taxonomy::create(['name' => 'Catalog', 'slug' => 'catalog']);
+    $taxonomy = Taxonomy::create(['name' => 'Themes', 'slug' => 'themes']);
     $make = fn (string $name, ?TaxonomyTerm $parent = null, int $position = 0): TaxonomyTerm => $taxonomy->terms()->create([
         'name' => $name, 'slug' => str($name)->slug()->toString(), 'parent_id' => $parent?->id, 'position' => $position,
     ]);
-    $games = $make('Games', null, 0);
-    $pokemon = $make('Pokémon', $games, 1);
-    $magic = $make('Magic', $games, 0);
-    $violet = $make('Scarlet & Violet', $pokemon, 0);
-    $paldea = $make('Paldea Evolved', $violet, 0);
-    $fates = $make('Paldean Fates', $violet, 1);
-    $places = $make('Places', null, 1);
-    $region = $make('Paldea', $places, 0);
+    $movies = $make('Movies', null, 0);
+    $disney = $make('Disney', $movies, 1);
+    $amelie = $make('Amélie', $movies, 0);
+    $lionKing = $make('The Lion King', $disney, 0);
+    $pride = $make('Pride Rock', $lionKing, 0);
+    $simba = $make('Simba', $lionKing, 1);
+    $nature = $make('Nature', null, 1);
+    $rock = $make('Rock formations', $nature, 0);
 
-    return compact('taxonomy', 'games', 'pokemon', 'magic', 'violet', 'paldea', 'fates', 'places', 'region');
+    return compact('taxonomy', 'movies', 'disney', 'amelie', 'lionKing', 'pride', 'simba', 'nature', 'rock');
 }
 
 it('reads the visible tree in depth-first order with one query', function (): void {
@@ -32,32 +32,32 @@ it('reads the visible tree in depth-first order with one query', function (): vo
     expect(DB::getQueryLog())->toHaveCount(1)
         ->and($outline->count())->toBe(8)
         ->and($outline->ids())->toBe([
-            $tree['games']->id, $tree['magic']->id, $tree['pokemon']->id, $tree['violet']->id,
-            $tree['paldea']->id, $tree['fates']->id, $tree['places']->id, $tree['region']->id,
+            $tree['movies']->id, $tree['amelie']->id, $tree['disney']->id, $tree['lionKing']->id,
+            $tree['pride']->id, $tree['simba']->id, $tree['nature']->id, $tree['rock']->id,
         ])
-        ->and($outline->children(null))->toBe([$tree['games']->id, $tree['places']->id])
-        ->and($outline->children($tree['violet']->id))->toBe([$tree['paldea']->id, $tree['fates']->id])
-        ->and($outline->ancestors($tree['fates']->id))->toBe([$tree['games']->id, $tree['pokemon']->id, $tree['violet']->id])
-        ->and($outline->descendants($tree['pokemon']->id))->toBe([$tree['violet']->id, $tree['paldea']->id, $tree['fates']->id])
-        ->and($outline->parent($tree['magic']->id))->toBe($tree['games']->id)
-        ->and($outline->hasChildren($tree['violet']->id))->toBeTrue()
-        ->and($outline->hasChildren($tree['paldea']->id))->toBeFalse()
-        ->and($outline->name($tree['pokemon']->id))->toBe('Pokémon')
+        ->and($outline->children(null))->toBe([$tree['movies']->id, $tree['nature']->id])
+        ->and($outline->children($tree['lionKing']->id))->toBe([$tree['pride']->id, $tree['simba']->id])
+        ->and($outline->ancestors($tree['simba']->id))->toBe([$tree['movies']->id, $tree['disney']->id, $tree['lionKing']->id])
+        ->and($outline->descendants($tree['disney']->id))->toBe([$tree['lionKing']->id, $tree['pride']->id, $tree['simba']->id])
+        ->and($outline->parent($tree['amelie']->id))->toBe($tree['movies']->id)
+        ->and($outline->hasChildren($tree['lionKing']->id))->toBeTrue()
+        ->and($outline->hasChildren($tree['pride']->id))->toBeFalse()
+        ->and($outline->name($tree['amelie']->id))->toBe('Amélie')
         ->and($outline->has(999))->toBeFalse();
 });
 
 it('leaves out hidden branches, cycles and identities the browser cannot represent', function (): void {
     $tree = outlineFixture();
-    DB::table('taxonomy_terms')->where('id', $tree['places']->id)->update(['parent_id' => $tree['region']->id]);
+    DB::table('taxonomy_terms')->where('id', $tree['nature']->id)->update(['parent_id' => $tree['rock']->id]);
     DB::table('taxonomy_terms')->insert([
         'id' => 9_007_199_254_740_993, 'taxonomy_id' => $tree['taxonomy']->id, 'parent_id' => null,
         'name' => 'Oversized', 'slug' => 'oversized', 'position' => 5,
     ]);
     $scopes = TaxonomyTerm::getAllGlobalScopes();
-    TaxonomyTerm::addGlobalScope('hide-pokemon', fn (Builder $query) => $query->where('taxonomy_terms.slug', '!=', 'pokemon'));
+    TaxonomyTerm::addGlobalScope('hide-disney', fn (Builder $query) => $query->where('taxonomy_terms.slug', '!=', 'disney'));
 
     try {
-        expect(TaxonomyOutline::for($tree['taxonomy'])->ids())->toBe([$tree['games']->id, $tree['magic']->id]);
+        expect(TaxonomyOutline::for($tree['taxonomy'])->ids())->toBe([$tree['movies']->id, $tree['amelie']->id]);
     } finally {
         TaxonomyTerm::setAllGlobalScopes($scopes);
     }
@@ -67,12 +67,12 @@ it('searches case and accent insensitively, across ancestors, best matches first
     $tree = outlineFixture();
     $outline = TaxonomyOutline::for($tree['taxonomy']);
 
-    expect($outline->search('POKEMON', 10))->toBe(['ids' => [$tree['pokemon']->id], 'total' => 1])
-        ->and($outline->search('paldea', 10)['ids'])->toBe([$tree['region']->id, $tree['paldea']->id, $tree['fates']->id])
-        ->and($outline->search('pokemon paldea', 10)['ids'])->toBe([$tree['paldea']->id, $tree['fates']->id])
-        ->and($outline->search('violet fates', 10)['ids'])->toBe([$tree['fates']->id])
-        ->and($outline->search('games', 10)['ids'])->toBe([$tree['games']->id])
-        ->and($outline->search('a', 2))->toBe(['ids' => [$tree['games']->id, $tree['magic']->id], 'total' => 7])
+    expect($outline->search('AMELIE', 10))->toBe(['ids' => [$tree['amelie']->id], 'total' => 1])
+        ->and($outline->search('rock', 10)['ids'])->toBe([$tree['rock']->id, $tree['pride']->id])
+        ->and($outline->search('lion rock', 10)['ids'])->toBe([$tree['pride']->id])
+        ->and($outline->search('disney simba', 10)['ids'])->toBe([$tree['simba']->id])
+        ->and($outline->search('movies', 10)['ids'])->toBe([$tree['movies']->id])
+        ->and($outline->search('e', 2))->toBe(['ids' => [$tree['movies']->id, $tree['amelie']->id], 'total' => 6])
         ->and($outline->search('   ', 10))->toBe(['ids' => [], 'total' => 0])
         ->and($outline->search('missing', 10))->toBe(['ids' => [], 'total' => 0]);
 });

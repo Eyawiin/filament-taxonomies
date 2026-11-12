@@ -35,13 +35,13 @@ const node = (id, name, ancestors = [], extra = {}) => ({
     ...extra,
 })
 
-// Science > Maths > (Algebra, Geometry); Languages
+// Pop culture > Disney > (Lilo & Stitch, The Lion King); Nature
 const nodes = [
-    node(1, 'Science', [], { hasChildren: true }),
-    node(2, 'Maths', [1], { hasChildren: true }),
-    node(3, 'Algebra', [1, 2]),
-    node(4, 'Geometry', [1, 2]),
-    node(5, 'Languages'),
+    node(1, 'Pop culture', [], { hasChildren: true }),
+    node(2, 'Disney', [1], { hasChildren: true }),
+    node(3, 'Lilo & Stitch', [1, 2]),
+    node(4, 'The Lion King', [1, 2]),
+    node(5, 'Nature'),
 ]
 
 function create(config = {}) {
@@ -76,20 +76,21 @@ const rowIds = (instance) =>
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 test('folding and search follow the server rules', () => {
-    assert.equal(fold('Pokémon ÉCLAIR'), 'pokemon eclair')
+    assert.equal(fold('Amélie ÉTÉ'), 'amelie ete')
     const tree = [
-        node(1, 'Games'),
-        node(2, 'Pokémon', [1]),
-        node(3, 'Paldea Evolved', [1, 2]),
-        node(4, 'Places'),
-        node(5, 'Paldea', [4]),
+        node(1, 'Movies'),
+        node(2, 'Amélie', [1]),
+        node(3, 'Disney', [1]),
+        node(4, 'Pride Rock', [1, 3]),
+        node(5, 'Nature'),
+        node(6, 'Rock formations', [5]),
     ]
     const names = new Map(tree.map((term) => [term.id, term.name]))
     const ids = (query) =>
         searchNodes(tree, query, (id) => names.get(id)).map((term) => term.id)
-    assert.deepEqual(ids('POKEMON'), [2])
-    assert.deepEqual(ids('paldea'), [5, 3])
-    assert.deepEqual(ids('pokemon paldea'), [3])
+    assert.deepEqual(ids('AMELIE'), [2])
+    assert.deepEqual(ids('rock'), [6, 4])
+    assert.deepEqual(ids('disney rock'), [4])
     assert.deepEqual(ids('  '), [])
 })
 
@@ -125,7 +126,7 @@ test('ancestor selection adds parents and removing a parent removes its branch',
 test('restricted and unavailable assignments survive removal and clearing', () => {
     const restricted = [
         ...nodes.slice(0, 3),
-        node(4, 'Geometry', [1, 2], {
+        node(4, 'The Lion King', [1, 2], {
             disabled: true,
             reason: 'Not permitted',
         }),
@@ -150,14 +151,14 @@ test('chips show the deepest selected terms with their paths', () => {
     assert.deepEqual(
         instance.chips.map((chip) => [chip.name, chip.path, chip.removable]),
         [
-            ['Algebra', 'Science › Maths', true],
-            ['Languages', '', true],
+            ['Lilo & Stitch', 'Pop culture › Disney', true],
+            ['Nature', '', true],
             ['Unavailable term', '', false],
         ],
     )
     instance.removeChip(3)
     assert.deepEqual(instance.state, [1, 2, 5, 99])
-    assert.equal(instance.chips[0].name, 'Maths')
+    assert.equal(instance.chips[0].name, 'Disney')
 })
 
 test('single fields choose one term, offer the empty choice and close the dropdown', () => {
@@ -175,8 +176,8 @@ test('single fields choose one term, offer the empty choice and close the dropdo
     instance.toggle(3)
     assert.equal(instance.state, 3)
     assert.equal(instance.open, false)
-    assert.equal(instance.singleLabel, 'Algebra')
-    assert.equal(instance.singlePath, 'Science › Maths')
+    assert.equal(instance.singleLabel, 'Lilo & Stitch')
+    assert.equal(instance.singlePath, 'Pop culture › Disney')
     instance.chooseEmpty()
     assert.equal(instance.state, null)
     instance.state = [3, 4]
@@ -197,12 +198,24 @@ test('the tree shows expanded branches, positions and searches with paths', () =
     assert.deepEqual(rowIds(instance), [1, 5])
     instance.expandAll()
     assert.deepEqual(rowIds(instance), [1, 2, 3, 4, 5])
-    instance.search = 'ALG'
+    instance.search = 'LILO'
     assert.deepEqual(rowIds(instance), [3])
-    assert.equal(instance.view.rows[0].path, 'Science › Maths')
+    assert.equal(instance.view.rows[0].path, 'Pop culture › Disney')
     instance.search = 'zzz'
     assert.equal(instance.view.status, 'No matching terms')
     assert.equal(create({ nodes: [] }).view.status, 'Empty taxonomy')
+})
+
+test('Enter in the search box chooses the first match', () => {
+    const instance = create({ selectAncestors: true })
+    instance.chooseFirstMatch()
+    assert.deepEqual(instance.state, [])
+    instance.search = 'lion'
+    instance.chooseFirstMatch()
+    assert.deepEqual(instance.state, [1, 2, 4])
+    instance.search = 'zzz'
+    instance.chooseFirstMatch()
+    assert.deepEqual(instance.state, [1, 2, 4])
 })
 
 test('disabled and read-only fields cannot change or open', () => {
@@ -227,12 +240,12 @@ test('lazy trees load branches and further pages, and recover from errors', asyn
     const instance = create({
         lazy: true,
         layout: 'dropdown',
-        nodes: [node(1, 'Science', [], { hasChildren: true }), nodes[4]],
+        nodes: [node(1, 'Pop culture', [], { hasChildren: true }), nodes[4]],
         more: true,
         call: async (method, args) => {
             calls.push([method, args])
             if (method === 'getTreeChildren' && args.parent === null)
-                return { nodes: [node(6, 'Music')], more: false }
+                return { nodes: [node(6, 'Star Wars')], more: false }
             if (fail) {
                 fail = false
                 throw new Error('offline')
@@ -264,31 +277,31 @@ test('lazy search and unknown selections are answered by the server', async () =
     const instance = create({
         lazy: true,
         searchDelay: 0,
-        nodes: [node(1, 'Science', [], { hasChildren: true })],
+        nodes: [node(1, 'Pop culture', [], { hasChildren: true })],
         call: async (method, args) => {
             if (method === 'searchTree')
                 return {
-                    nodes: [node(3, 'Algebra', [1, 2])],
-                    names: { 1: 'Science', 2: 'Maths' },
+                    nodes: [node(3, 'Lilo & Stitch', [1, 2])],
+                    names: { 1: 'Pop culture', 2: 'Disney' },
                     total: 7,
                 }
             if (method === 'getTreeSelection')
                 return {
                     nodes: args.ids.includes('4')
-                        ? [node(4, 'Geometry', [1, 2])]
+                        ? [node(4, 'The Lion King', [1, 2])]
                         : [],
-                    names: { 2: 'Maths' },
+                    names: { 2: 'Disney' },
                 }
             return { nodes: [], more: false }
         },
     })
-    instance.search = 'alg'
+    instance.search = 'lilo'
     instance.runSearch()
     assert.equal(instance.view.status, 'Searching…')
     await flush()
     await flush()
     assert.deepEqual(rowIds(instance), [3])
-    assert.equal(instance.view.rows[0].path, 'Science › Maths')
+    assert.equal(instance.view.rows[0].path, 'Pop culture › Disney')
     assert.equal(instance.view.status, 'Showing 1 of 7')
 
     instance.state = [4, 88]
@@ -296,7 +309,7 @@ test('lazy search and unknown selections are answered by the server', async () =
     await flush()
     assert.deepEqual(
         instance.chips.map((chip) => chip.name),
-        ['Geometry', 'Unavailable term'],
+        ['The Lion King', 'Unavailable term'],
     )
 })
 
@@ -313,7 +326,7 @@ test('configuration updates keep expansion unless the tree itself changed', asyn
     assert.equal(instance.disabled, true)
     assert.deepEqual(rowIds(instance), [1, 2, 5])
     instance.configure({
-        nodes: [...nodes, node(6, 'Music', [], { hasChildren: true })],
+        nodes: [...nodes, node(6, 'Star Wars', [], { hasChildren: true })],
         layout: 'tree',
         multiple: true,
         labels,

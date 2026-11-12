@@ -30,7 +30,7 @@ class RepeaterPage extends Page
 
     public function form(Schema $schema): Schema
     {
-        $field = TaxonomySelect::make('topic_ids')->taxonomy('demo-topics')->multiple();
+        $field = TaxonomySelect::make('theme_ids')->taxonomy('themes')->multiple();
         $repeater = Repeater::make($this->jsonMode ? 'rows' : 'decks')->schema([
             TextInput::make('name')->required(),
             $this->jsonMode ? $field->saved(false)->dehydrated() : $field,

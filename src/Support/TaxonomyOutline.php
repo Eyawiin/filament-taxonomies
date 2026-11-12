@@ -179,7 +179,7 @@ final class TaxonomyOutline
         ];
     }
 
-    /** Lowercase without accents, so "pokemon" finds "Pokémon". */
+    /** Lowercase without accents, so "amelie" finds "Amélie". */
     public static function fold(string $value): string
     {
         $value = mb_strtolower($value);

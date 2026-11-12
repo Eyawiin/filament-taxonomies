@@ -11,7 +11,7 @@ it('adds a repeatable deep and broad playground without changing existing data o
     $fixture = FormFixture::create();
     $ordinaryDeck = Deck::where('demo_key', 'deck-0')->firstOrFail();
     $ordinaryDeck->update(['name' => 'My edited deck']);
-    $ordinaryDeck->syncTaxonomyTerms($fixture['topics'], [$fixture['algebra']->id]);
+    $ordinaryDeck->syncTaxonomyTerms($fixture['themes'], [$fixture['wolves']->id]);
     $this->seed(LargeDemoSeeder::class);
 
     $taxonomy = Taxonomy::where('slug', LargeDemoTaxonomyFactory::SLUG)->firstOrFail();
@@ -19,7 +19,8 @@ it('adds a repeatable deep and broad playground without changing existing data o
     expect($taxonomy->terms()->count())->toBe(LargeDemoTaxonomyFactory::TERM_COUNT)
         ->and($outline->count())->toBe(LargeDemoTaxonomyFactory::TERM_COUNT)
         ->and(max(array_map(fn (int $id): int => count($outline->ancestors($id)) + 1, $outline->ids())))->toBe(LargeDemoTaxonomyFactory::MAX_DEPTH)
-        ->and($taxonomy->terms()->where('name', 'Overview')->count())->toBe(72)
+        ->and($taxonomy->terms()->where('name', 'Standard edition')->count())->toBe(72)
+        ->and($taxonomy->terms()->where('slug', 'disney-lilo-stitch')->value('name'))->toBe('Lilo & Stitch')
         ->and(Deck::count())->toBe(7);
 
     $deepDeck = Deck::where('demo_key', 'large-tree-deep')->firstOrFail();
@@ -38,5 +39,5 @@ it('adds a repeatable deep and broad playground without changing existing data o
         ->and($leaf->fresh()->name)->toBe('My edited deepest term')
         ->and($deepDeck->fresh()->termsForTaxonomy($taxonomy)->pluck('taxonomy_terms.id')->all())->toBe([$leaf->id])
         ->and($ordinaryDeck->fresh()->name)->toBe('My edited deck')
-        ->and($ordinaryDeck->termsForTaxonomy($fixture['topics'])->pluck('taxonomy_terms.id')->all())->toBe([$fixture['algebra']->id]);
+        ->and($ordinaryDeck->termsForTaxonomy($fixture['themes'])->pluck('taxonomy_terms.id')->all())->toBe([$fixture['wolves']->id]);
 });

@@ -30,16 +30,16 @@ class DeckResource extends Resource
         $components = [
             TextInput::make('name')->required()->maxLength(255),
             Textarea::make('description'),
-            TaxonomySelect::make('topic_ids')->label('Topics')->taxonomy('demo-topics')->multiple()
+            TaxonomySelect::make('theme_ids')->label('Themes')->taxonomy('themes')->multiple()
                 ->selectAncestors(),
-            TaxonomySelect::make('level_id')->label('Level')->taxonomy('demo-levels'),
+            TaxonomySelect::make('brand_id')->label('Brand')->taxonomy('brands'),
         ];
         // Omit the optional relationship field entirely until its taxonomy exists.
         // Hidden fields can still hydrate their relationship state.
         if (Taxonomy::where('slug', LargeDemoTaxonomyFactory::SLUG)->exists()) {
-            $components[] = TaxonomySelect::make('large_tree_ids')->label('Large tree playground')
+            $components[] = TaxonomySelect::make('catalog_ids')->label('Large catalog')
                 ->taxonomy(LargeDemoTaxonomyFactory::SLUG)->multiple()->selectAncestors()
-                ->helperText('534 terms across six roots, including a branch with 25 levels. Search “Overview” to compare identical names.');
+                ->helperText('534 terms: six themes with twelve series and six editions each, plus a branch with 25 levels. Search “Standard edition” to compare identical names.');
         }
 
         return $schema->components($components);

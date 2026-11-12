@@ -24,18 +24,18 @@ class BrowserAssignmentPage extends Page
 
     public function mount(): void
     {
-        $grammar = TaxonomyTerm::where('slug', 'grammar')->firstOrFail();
-        $this->form->fill(['topics' => [$grammar->id], 'rows' => [['topic_ids' => []], ['topic_ids' => []]]]);
+        $liloAndStitch = TaxonomyTerm::where('slug', 'lilo-and-stitch')->firstOrFail();
+        $this->form->fill(['themes' => [$liloAndStitch->id], 'rows' => [['theme_ids' => []], ['theme_ids' => []]]]);
     }
 
     public function form(Schema $schema): Schema
     {
         return $schema->statePath('data')->components([
-            TaxonomySelect::make('topics')->taxonomy('demo-topics')->multiple(fn (): bool => $this->multiple)->live()
+            TaxonomySelect::make('themes')->taxonomy('themes')->multiple(fn (): bool => $this->multiple)->live()
                 ->disabled(fn (): bool => $this->disabled)->readOnly(fn (): bool => $this->readOnly)
-                ->disableTermWhen(fn (TaxonomyTerm $term): bool => $term->slug === 'algebra'),
+                ->disableTermWhen(fn (TaxonomyTerm $term): bool => $term->slug === 'wolves'),
             Repeater::make('rows')->schema([
-                TaxonomySelect::make('topic_ids')->taxonomy('demo-topics')->multiple()->saved(false)->dehydrated(),
+                TaxonomySelect::make('theme_ids')->taxonomy('themes')->multiple()->saved(false)->dehydrated(),
             ])->reorderable(false),
         ]);
     }
@@ -49,7 +49,7 @@ class BrowserAssignmentPage extends Page
     {
         return [Action::make('assign')->label('Edit deck assignments')
             ->record(fn () => Deck::where('demo_key', 'deck-0')->firstOrFail())
-            ->schema([TaxonomySelect::make('topic_ids')->taxonomy('demo-topics')->multiple()])
+            ->schema([TaxonomySelect::make('theme_ids')->taxonomy('themes')->multiple()])
             ->modalSubmitActionLabel('Save assignments')
             ->databaseTransaction()
             ->action(fn () => null)];
@@ -58,11 +58,11 @@ class BrowserAssignmentPage extends Page
     public function toggleMultiple(): void
     {
         $this->multiple = ! $this->multiple;
-        $this->data['topics'] = $this->multiple ? [] : null;
+        $this->data['themes'] = $this->multiple ? [] : null;
     }
 
     public function removeSelection(): void
     {
-        TaxonomyTerm::where('slug', 'grammar')->update(['name' => 'Updated grammar']);
+        TaxonomyTerm::where('slug', 'lilo-and-stitch')->update(['name' => 'Updated Lilo & Stitch']);
     }
 }

@@ -11,7 +11,7 @@ use Workbench\Database\Seeders\DemoSeeder;
 
 class FormFixture
 {
-    /** @return array{topics: Taxonomy, levels: Taxonomy, grammar: TaxonomyTerm, algebra: TaxonomyTerm, a1: TaxonomyTerm} */
+    /** @return array{themes: Taxonomy, brands: Taxonomy, liloAndStitch: TaxonomyTerm, wolves: TaxonomyTerm, riderBackRed: TaxonomyTerm} */
     public static function create(): array
     {
         Filament::setCurrentPanel('admin');
@@ -19,13 +19,13 @@ class FormFixture
             (require dirname(__DIR__, 3) . '/workbench/database/migrations/2026_10_04_000000_create_decks_table.php')->up();
         }
         app(DemoSeeder::class)->run();
-        $topics = Taxonomy::where('slug', 'demo-topics')->firstOrFail();
-        $levels = Taxonomy::where('slug', 'demo-levels')->firstOrFail();
+        $themes = Taxonomy::where('slug', 'themes')->firstOrFail();
+        $brands = Taxonomy::where('slug', 'brands')->firstOrFail();
 
-        return ['topics' => $topics, 'levels' => $levels,
-            'grammar' => $topics->terms()->where('slug', 'grammar')->firstOrFail(),
-            'algebra' => $topics->terms()->where('slug', 'algebra')->firstOrFail(),
-            'a1' => $levels->terms()->where('slug', 'a1')->firstOrFail()];
+        return ['themes' => $themes, 'brands' => $brands,
+            'liloAndStitch' => $themes->terms()->where('slug', 'lilo-and-stitch')->firstOrFail(),
+            'wolves' => $themes->terms()->where('slug', 'wolves')->firstOrFail(),
+            'riderBackRed' => $brands->terms()->where('slug', 'bicycle-rider-back-red')->firstOrFail()];
     }
 
     public static function createCollectionSchema(): void

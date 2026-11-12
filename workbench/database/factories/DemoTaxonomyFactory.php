@@ -6,7 +6,11 @@ use Eyawiin\FilamentTaxonomies\Models\Taxonomy;
 use Eyawiin\FilamentTaxonomies\Services\TaxonomyTreeService;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/** @extends Factory<Taxonomy> */
+/**
+ * Demo taxonomies for a collection of playing-card decks.
+ *
+ * @extends Factory<Taxonomy>
+ */
 class DemoTaxonomyFactory extends Factory
 {
     protected $model = Taxonomy::class;
@@ -16,27 +20,29 @@ class DemoTaxonomyFactory extends Factory
         return ['name' => 'Demo ' . fake()->unique()->word(), 'slug' => 'demo-' . fake()->unique()->slug()];
     }
 
-    public function topics(): static
+    /** What a deck shows; decks usually get several themes. */
+    public function themes(): static
     {
-        return $this->state(['name' => 'Demo Topics', 'slug' => 'demo-topics'])->withTree([
-            ['Languages', 'languages', null], ['English', 'english', 'languages'],
-            ['Grammar', 'grammar', 'english'], ['Vocabulary', 'vocabulary', 'english'],
-            ['German', 'german', 'languages'], ['Verbs', 'verbs', 'german'],
-            ['Science', 'science', null], ['Mathematics', 'mathematics', 'science'],
-            ['Algebra', 'algebra', 'mathematics'], ['Geometry', 'geometry', 'mathematics'],
-            ['Biology', 'biology', 'science'], ['Cells', 'cells', 'biology'],
+        return $this->state(['name' => 'Themes', 'slug' => 'themes'])->withTree([
+            ['Pop culture', 'pop-culture', null], ['Disney', 'disney', 'pop-culture'],
+            ['Lilo & Stitch', 'lilo-and-stitch', 'disney'], ['The Lion King', 'the-lion-king', 'disney'],
+            ['Star Wars', 'star-wars', 'pop-culture'], ['The Mandalorian', 'the-mandalorian', 'star-wars'],
+            ['Nature', 'nature', null], ['Animals', 'animals', 'nature'],
+            ['Wolves', 'wolves', 'animals'], ['Owls', 'owls', 'animals'],
+            ['Space', 'space', 'nature'], ['Planets', 'planets', 'space'],
         ]);
     }
 
-    public function levels(): static
+    /** Brand, line and back color; a deck has exactly one. */
+    public function brands(): static
     {
-        return $this->state(['name' => 'Demo Levels', 'slug' => 'demo-levels'])->withTree([
-            ['Beginner', 'beginner', null], ['Foundation', 'foundation', 'beginner'],
-            ['A1', 'a1', 'foundation'], ['A2', 'a2', 'foundation'],
-            ['Intermediate', 'intermediate', null], ['Independent', 'independent', 'intermediate'],
-            ['B1', 'b1', 'independent'], ['B2', 'b2', 'independent'],
-            ['Advanced', 'advanced', null], ['Proficient', 'proficient', 'advanced'],
-            ['C1', 'c1', 'proficient'], ['C2', 'c2', 'proficient'],
+        return $this->state(['name' => 'Brands', 'slug' => 'brands'])->withTree([
+            ['Bicycle', 'bicycle', null], ['Rider Back', 'bicycle-rider-back', 'bicycle'],
+            ['Red', 'bicycle-rider-back-red', 'bicycle-rider-back'], ['Blue', 'bicycle-rider-back-blue', 'bicycle-rider-back'],
+            ['Tally-Ho', 'tally-ho', null], ['Circle Back', 'tally-ho-circle-back', 'tally-ho'],
+            ['Red', 'tally-ho-circle-back-red', 'tally-ho-circle-back'], ['Blue', 'tally-ho-circle-back-blue', 'tally-ho-circle-back'],
+            ['Bee', 'bee', null], ['Club Special', 'bee-club-special', 'bee'],
+            ['Red', 'bee-club-special-red', 'bee-club-special'], ['Blue', 'bee-club-special-blue', 'bee-club-special'],
         ]);
     }
 

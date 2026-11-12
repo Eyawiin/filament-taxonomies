@@ -7,6 +7,7 @@ use Filament\Panel;
 use Illuminate\Support\Facades\Route;
 use Workbench\App\Models\Deck;
 use Workbench\App\Providers\Filament\AdminPanelProvider;
+use Workbench\Database\Factories\LargeDemoTaxonomyFactory;
 
 class BrowserPanelProvider extends AdminPanelProvider
 {
@@ -20,9 +21,9 @@ class BrowserPanelProvider extends AdminPanelProvider
         Route::get('/__assignment-state', function (): array {
             return Deck::orderBy('id')->get()->map(fn ($deck): array => [
                 'id' => $deck->id, 'name' => $deck->name, 'demo_key' => $deck->demo_key,
-                'topics' => $deck->termsForTaxonomy('demo-topics')->pluck('taxonomy_terms.name')->all(),
-                'levels' => $deck->termsForTaxonomy('demo-levels')->pluck('taxonomy_terms.name')->all(),
-                'large_tree' => $deck->termsForTaxonomy('demo-large-tree')->pluck('taxonomy_terms.id')->all(),
+                'themes' => $deck->termsForTaxonomy('themes')->pluck('taxonomy_terms.name')->all(),
+                'brands' => $deck->termsForTaxonomy('brands')->pluck('taxonomy_terms.slug')->all(),
+                'catalog' => $deck->termsForTaxonomy(LargeDemoTaxonomyFactory::SLUG)->pluck('taxonomy_terms.id')->all(),
             ])->all();
         });
         Route::get('/__taxonomy-terms/{slug}', function (string $slug): array {
